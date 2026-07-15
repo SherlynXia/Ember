@@ -3,6 +3,8 @@
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
+
+#[tauri::command]
 fn hello_world() -> String {
     "Hello, world!".to_string()
 }

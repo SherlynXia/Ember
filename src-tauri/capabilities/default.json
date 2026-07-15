@@ -5,10 +5,6 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default",
-    {
-      "identifier": "core:allow-invoke",
-      "allow": [{ "command": "hello_world" }]
-    }
+    "opener:default"
   ]
 }
