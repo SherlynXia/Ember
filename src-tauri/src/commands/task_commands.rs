@@ -1,12 +1,13 @@
 use tauri::command;
 use crate::models::{Task, AppState};
-use crate::storage::file_store;
-use crate::services::calc;
+use crate::storage::{load_state, save_state, get_state_path};
+use crate::services::calculate_deviation;
 use chrono::Local;
+use std::sync::Mutex;
 
 #[command]
 pub fn create_task(
-    state: tauri::State<'_, AppState>,
+    state: tauri::State<'_, Mutex<AppState>>,
     title: String,
     estimated_time: f32,
     estimated_difficulty: u8,
@@ -21,7 +22,7 @@ pub fn create_task(
     }
 
     // 2. 构建新任务
-    let mut state = state.into_inner(); // 注意：AppState 需要用 Mutex 包裹，后面会改
+    let mut state = state.lock().unwrap(); // 注意：AppState 需要用 Mutex 包裹，后面会改
     let id = state.next_task_id;
     state.next_task_id += 1;
 
@@ -45,14 +46,14 @@ pub fn create_task(
     state.tasks.push(task.clone());
 
     // 3. 保存到文件
-    file_store::save_state(&state)?;
+    save_state(&state)?;
 
     Ok(task)
 }
 
 #[command]
 pub fn complete_task(
-    state: tauri::State<'_, AppState>,
+    state: tauri::State<'_, Mutex<AppState>>,
     task_id: u64,
     actual_time: f32,
     actual_satisfaction: u8,
@@ -67,7 +68,7 @@ pub fn complete_task(
     }
     // ... 其他校验
 
-    let mut state = state.into_inner();
+    let mut state = state.lock().unwrap();
     let task = state.tasks.iter_mut().find(|t| t.id == task_id)
         .ok_or("任务不存在")?;
 
@@ -89,16 +90,18 @@ pub fn complete_task(
     // 这里需要先实现 services/stats.rs 和 calc.rs 的相关函数
     // 比如：update_daily_rating(&mut state, task.completion_date.unwrap());
 
-    file_store::save_state(&state)?;
+    save_state(&state)?;
     Ok(())
 }
 
 #[command]
 pub fn get_tasks_by_date(
-    state: tauri::State<'_, AppState>,
+    state: tauri::State<'_, Mutex<AppState>>,
     date_str: String,
 ) -> Result<Vec<Task>, String> {
     use chrono::NaiveDate;
+    
+    let state = state.lock().unwrap(); 
     let date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
         .map_err(|_| "日期格式错误，请使用 YYYY-MM-DD".to_string())?;
 
