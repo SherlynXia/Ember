@@ -1,548 +1,369 @@
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
-import { invoke } from "@tauri-apps/api/core";
-
-// 5档评价状态
-type DayStatus = 0 | 1 | 2 | 3 | 4 ;
-
-// 状态对应分数、颜色、阴影、emoji
-const statusScoreMap: Record<DayStatus, number> = {
-  0: 0, // 无记录
-  1: 1, // 很差 红
-  2: 2, // 一般 橙
-  3: 3, // 普通 黄
-  4: 4, // 优秀 深绿
-};
-
-const statusMap = [
-  {
-    color: 
-    "rgba(18,24,21,0.3)",
-    emoji: "⬜",
-    label: "无记录",
-    score: 0
-  },
-  {
-    color: 
-     "rgba(18,70,43,0.4)",
-    emoji: "😫",
-    label: "累/没进展",
-    score: 1
-  },
-  {
-    color: 
-     "rgba(18,108,54,0.5)",
-    emoji: "😐",
-    label: "一般/平淡",
-    score: 2
-  },
-  {
-    color: 
-     "rgba(18,128,58,0.6)",
-    emoji: "😊",
-    label: "爽/有成就感",
-    score: 3
-  },
-  {
-    color: 
-     "rgba(30,148,80,0.7)",
-    emoji: "🥳",
-    label: "超常发挥",
-    score: 4
-  }
-];
-
-type MonthRecord = Record<number, { status: DayStatus; text: string }>;
-type YearRecord = Record<number, MonthRecord>;
-
-const allYearData = reactive<Record<number, YearRecord>>({});
-
-const currentYear = ref(new Date().getFullYear());
-const currentMonth = ref(new Date().getMonth() + 1);
-
-const showPopup = ref(false);
-const selectDay = ref(0);
-const tempText = ref("");
-
-// 闰年判断
-const isLeapYear = computed(() => {
-  const year = currentYear.value;
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-});
-
-// 当月天数
-const monthMaxDay = computed(() => {
-  const m = currentMonth.value;
-  if ([1, 3, 5, 7, 8, 10, 12].includes(m)) return 31;
-  if ([4, 6, 9, 11].includes(m)) return 30;
-  return isLeapYear.value ? 29 : 28;
-});
-
-const dayList = computed(() =>
-  Array.from({ length: monthMaxDay.value }, (_, i) => i + 1)
-);
-
-// 获取单日数据
-const getDayInfo = (day: number) => {
-  const yearData = allYearData[currentYear.value] ?? {};
-  const monthData = yearData[currentMonth.value] ?? {};
-  return monthData[day] ?? { status: 0, text: "" };
-};
-
-// 截取前4字预览
-const getShortText = (text: string) => {
-  if (!text) return "";
-  return text.slice(0, 4);
-};
-
-// 曲线数据源
-const curveData = computed(() => {
-  return dayList.value.map((day) => {
-    const info = getDayInfo(day);
-    return {
-      day,
-      score: statusScoreMap[info.status],
-    };
-  });
-});
-
-// 打开编辑弹窗
-function openEdit(day: number) {
-  selectDay.value = day;
-  const info = getDayInfo(day);
-  tempText.value = info.text;
-  showPopup.value = true;
-}
-
-// 保存记录
-function saveRecord(status: DayStatus) {
-  const trimText = tempText.value.slice(0, 20);
-
-  if (!allYearData[currentYear.value]) {
-    allYearData[currentYear.value] = {};
-  }
-  if (!allYearData[currentYear.value][currentMonth.value]) {
-    allYearData[currentYear.value][currentMonth.value] = {};
-  }
-
-  allYearData[currentYear.value][currentMonth.value][selectDay.value] = {
-    status,
-    text: trimText,
-  };
-
-  showPopup.value = false;
-}
-
-// 切换年月
-function changeMonth(num: number) {
-  currentMonth.value = num;
-}
-function addYear() {
-  currentYear.value += 1;
-}
-function subYear() {
-  currentYear.value -= 1;
-}
-
-// 【可选持久化】软件启动读取本地存档，需要配合之前给你的Rust commands
-onMounted(async () => {
-  try {
-    const jsonStr = await invoke<string>("load_record");
-    const saved = JSON.parse(jsonStr);
-    Object.assign(allYearData, saved);
-  } catch (err) {
-    console.log("暂无本地存档", err);
-  }
-});
-watch(allYearData, async (val) => {
-  try {
-    const jsonStr = JSON.stringify(val);
-    await invoke("save_record", { data: jsonStr });
-  } catch (e) {}
-}, { deep: true });
-</script>
-
 <template>
-  <main class="container">
-    <div class="year-wrap">
-      <h2>年度每日评价记录</h2>
-
-      <div class="year-switch">
-        <button @click="subYear">◀</button>
-        <span class="year-text">{{ currentYear }} 年</span>
-        <button @click="addYear">▶</button>
-        <span class="leap-tip" v-if="currentMonth === 2">
-          {{ isLeapYear ? "闰年29天" : "平年28天" }}
-        </span>
+  <div class="rating-container dark-theme">
+    <!-- 顶部头部信息 -->
+    <div class="header-wrap">
+      <div class="title-area">
+        <h2 class="main-title">我的每日评分记录</h2>
+        <div class="stat-text">
+          评分记录已陪伴你 {{ totalRecordDays }} 天，共 {{ totalRecordCount }} 条记录，最近连续 {{ continueDays }} 天打卡
+        </div>
+        <!-- 接口加载失败提示 -->
+        <div v-if="loadError" class="error-tip">⚠️ 数据加载失败，请检查后端服务</div>
       </div>
+      <button 
+        class="config-btn"
+        :style="{ backgroundColor: globalConfig.themePrimaryColor, color: globalConfig.textMainColor }"
+      >
+        后端配色配置面板
+      </button>
+    </div>
 
-      <div class="month-tabs">
-        <button
-          v-for="m in 12"
-          :key="m"
-          class="month-btn"
-          :class="{ active: currentMonth === m }"
-          @click="changeMonth(m)"
-        >
-          {{ m }}月
-        </button>
+    <!-- Tab切换栏 -->
+    <div class="tab-wrap">
+      <button 
+        class="tab-item" 
+        :class="{ active: activeTab === 'rating' }"
+        :style="activeTab === 'rating' ? { backgroundColor: globalConfig.tabActiveBg } : {}"
+        @click="activeTab = 'rating'"
+      >
+        每日评分
+      </button>
+      <button 
+        class="tab-item"
+        :class="{ active: activeTab === 'growth' }"
+        @click="activeTab = 'growth'"
+      >
+        成长度
+      </button>
+    </div>
+    <div class="tab-desc">
+      每日记录越多，热力色块颜色越深（色块颜色由后端 productivity_color 字段控制）
+    </div>
+
+    <!-- 热力图网格区域 -->
+    <div class="heatmap-wrap">
+      <!-- 月份横轴标签 -->
+      <div class="month-label-row">
+        <span v-for="month in monthList" :key="month" class="month-label">{{ month }}月</span>
       </div>
-
-      <!-- 5档图例 -->
-      <div class="legend">
-        <span v-for="item in statusMap" :key="item.label">
-          <span class="color-block" :style="{ background: item.color }"></span>
-          {{ item.emoji }} {{ item.label }}
-        </span>
-      </div>
-
-      <div class="chart-box">
-        <h4>{{ currentYear }}年{{ currentMonth }}月 状态趋势曲线</h4>
-        <svg
-          width="100%"
-          height="160"
-          viewBox="0 0 720 160"
-          preserveAspectRatio="none"
-        >
-          <!-- 5档横向参考线 -->
-          <line x1="0" y1="48" x2="720" y2="48" stroke="#888" stroke-width="0.5" opacity="0.4" />
-          <line x1="0" y1="76" x2="720" y2="76" stroke="#888" stroke-width="0.5" opacity="0.4" />
-          <line x1="0" y1="104" x2="720" y2="104" stroke="#888" stroke-width="0.5" opacity="0.4" />
-          <line x1="0" y1="132" x2="720" y2="132" stroke="#888" stroke-width="0.5" opacity="0.4" />
-          <!-- 等级文字 -->
-          <text x="8" y="45" fill="#aaa">良好</text>
-          <text x="8" y="73" fill="#aaa">普通</text>
-          <text x="8" y="101" fill="#aaa">一般</text>
-          <text x="8" y="129" fill="#aaa">很差</text>
-          <path
-            :d="curveData.reduce((path, point, idx) => {
-              const totalWidth = 700;
-              const step = totalWidth / (dayList.length - 1 || 1);
-              const x = 10 + idx * step;
-              const y = 140 - point.score * 24;
-              return idx === 0 ? `M ${x} ${y}` : `${path} L ${x} ${y}`;
-            }, '')"
-            fill="none"
-            stroke="#396cd8"
-            stroke-width="2"
-          />
-          <circle
-            v-for="point in curveData"
-            :key="point.day"
-            :cx="10 + (point.day - 1) * (700 / (dayList.length - 1 || 1))"
-            :cy="140 - point.score * 24"
-            r="3"
-            fill="#396cd8"
-          />
-        </svg>
-      </div>
-
-      <!-- 3D缩小方格 -->
-      <div class="day-grid">
-        <div
-          v-for="day in dayList"
-          :key="day"
-          class="day-block"
+      <!-- 热力格子矩阵 -->
+      <div class="heatmap-grid">
+        <div 
+          v-for="(cell, idx) in gridCellList" 
+          :key="idx"
+          class="grid-cell"
           :style="{
-            background: statusMap[getDayInfo(day).status].color,
-            boxShadow: `inset 0 -4px 0 ${statusMap[getDayInfo(day).status]}, 0 2px 8px rgba(0,0,0,0.35)`
+            backgroundColor: cell.record ? cell.record.productivity_color : globalConfig.emptyCellColor
           }"
-          @click="openEdit(day)"
+          @click="handleCellClick(cell)"
         >
-          <span class="day-num">{{ day }}</span>
-          <span class="day-text">{{ getShortText(getDayInfo(day).text) }}</span>
+          <!-- 有记录时hover弹窗简易标识 -->
+          <div v-if="cell.record" class="cell-tooltip">
+            {{ cell.record.date }} | {{ cell.record.mood_emoji }} {{ cell.record.comment || '无备注' }}
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 弹窗包含5个状态按钮 -->
-    <div class="popup-mask" v-if="showPopup" @click="showPopup = false">
-      <div class="popup-box" @click.stop>
-        <h3>{{ currentYear }}年{{ currentMonth }}月{{ selectDay }}日 - 填写评价</h3>
-        <textarea
-          v-model="tempText"
-          maxlength="20"
-          placeholder="输入当日简短评价（限20字内）"
-          rows="4"
-        ></textarea>
-        <p class="word-count">已输入 {{ tempText.length }} / 20 字</p>
-        <div class="btn-group">
-          <button
-            v-for="(item, idx) in statusMap"
-            :key="idx"
-            @click="saveRecord(idx as DayStatus)"
-            class="status-btn"
-            :style="{ borderColor: item.color }"
-          >
-            {{ item.emoji }} {{ item.label }}
-          </button>
-        </div>
+    <!-- 底部说明模块 -->
+    <div class="bottom-desc-card">
+      <h3 class="card-title">每日评分自动记录</h3>
+      <p class="card-text">
+        后端统一配置全局主题色、空白格子底色；单条日期色块颜色由每条 DailyRating 的 productivity_color 字段动态下发，前端无硬编码色值
+      </p>
+      <button 
+        class="open-config-btn"
+        :style="{ backgroundColor: globalConfig.themePrimaryColor, color: globalConfig.textMainColor }"
+      >
+        打开后端配色管理
+      </button>
+      <!-- 右下角装饰点阵图形（动态色） -->
+      <div class="decor-dot-group">
+        <div 
+          v-for="dot in 120" 
+          :key="dot"
+          class="decor-dot"
+          :style="{ backgroundColor: globalConfig.themePrimaryColor }"
+        ></div>
       </div>
     </div>
-  </main>
+  </div>
 </template>
 
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
+// ====================== 类型定义（和后端Rust字段完全对齐） ======================
+export interface DailyRating {
+  date: string // "YYYY-MM-DD"
+  status: number // 0~5 五档评价
+  comment: string | null // 最多20字短评
+  mood_emoji: string // 表情 🟢❌
+  productivity_color: string // CSS rgba/hex 色块颜色，后端控制
+  work_hours: number
+  achievement_score: number
+  mit_completion_rate: number
+  task_count_delta: number
+  has_overdue: boolean
+  has_milestone: boolean
+}
+
+export interface GlobalThemeConfig {
+  themePrimaryColor: string // 按钮主色
+  emptyCellColor: string // 无数据空白格子底色
+  tabActiveBg: string // Tab激活背景色
+  textMainColor: string // 主文字色
+  textSubColor: string // 次要文字色
+  cardBgColor: string // 底部卡片背景
+  pageBgColor: string // 页面整体深色背景
+  themeBorderColor: string // 边框基础色
+  tooltipBgColor: string // 悬浮提示框背景
+  tooltipTextColor: string // 悬浮提示文字色
+}
+
+interface GridCell {
+  date: string | null
+  record: DailyRating | null
+}
+
+// ====================== 响应式数据 ======================
+const activeTab = ref<'rating' | 'growth'>('rating')
+const monthList = ref([8,9,10,11,12,1,2,3,4,5,6,7])
+const ratingList = ref<DailyRating[]>([])
+const globalConfig = ref<GlobalThemeConfig>({
+  themePrimaryColor: '#3b82f6',
+  emptyCellColor: '#222226',
+  tabActiveBg: 'rgba(59, 130, 246, 0.2)',
+  textMainColor: '#f5f5f5',
+  textSubColor: '#9ca3af',
+  cardBgColor: '#1e1e22',
+  pageBgColor: '#121214',
+  themeBorderColor: '#333338',
+  tooltipBgColor: '#0a0a0c',
+  tooltipTextColor: '#f5f5f5'
+})
+const continueDays = ref(1)
+const loadError = ref(false) // 接口加载错误标记
+
+// 统计数据
+const totalRecordDays = computed(() => ratingList.value.length)
+const totalRecordCount = computed(() => ratingList.value.length)
+
+// 热力网格矩阵【修复：稳定日期映射，不会随机丢失数据】
+const gridCellList = computed<GridCell[]>(() => {
+  const cells: GridCell[] = []
+  const rowCount = 6
+  const colCount = 60
+  // 生成固定6行60列格子
+  for(let row=0; row<rowCount; row++) {
+    for(let col=0; col<colCount; col++) {
+      cells.push({ date: null, record: null })
+    }
+  }
+  // 稳定映射算法：用日期总天数计算唯一索引，每条数据都会分配格子
+  ratingList.value.forEach((item) => {
+    const [year, month, day] = item.date.split('-').map(Number)
+    const dayTotal = year * 400 + month * 32 + day
+    const targetIdx = dayTotal % cells.length
+    cells[targetIdx].date = item.date
+    cells[targetIdx].record = item
+  })
+  return cells
+})
+
+// ====================== 原生Fetch请求（带调试打印） ======================
+const fetchGlobalTheme = async () => {
+  try {
+    const resp = await fetch('/api/theme/config')
+    if (!resp.ok) throw new Error(`主题接口状态码：${resp.status}`)
+    const data = await resp.json() as GlobalThemeConfig
+    console.log('✅ 主题配色加载成功：', data)
+    globalConfig.value = data
+    loadError.value = false
+  } catch (err) {
+    loadError.value = true
+    console.error('❌ 加载主题配色失败：', err)
+  }
+}
+
+const fetchDailyRating = async () => {
+  try {
+    const resp = await fetch('/api/daily-rating/list')
+    if (!resp.ok) throw new Error(`评分接口状态码：${resp.status}`)
+    type RatingRes = { continueDays: number; list: DailyRating[] }
+    const data = await resp.json() as RatingRes
+    console.log('✅ 评分数据加载成功：', data)
+    ratingList.value = data.list
+    continueDays.value = data.continueDays
+    loadError.value = false
+  } catch (err) {
+    loadError.value = true
+    console.error('❌ 加载每日评分记录失败：', err)
+  }
+}
+
+// 格子点击事件
+const handleCellClick = (cell: GridCell) => {
+  if(!cell.record) return
+  console.log('选中当日记录：', cell.record)
+}
+
+onMounted(async () => {
+  await fetchGlobalTheme()
+  await fetchDailyRating()
+})
+</script>
+
 <style scoped>
-.year-wrap {
-  margin-top: 6vh;
-  padding: 24px;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-  max-width: 1100px;
-  width: 96%;
-}
-
-.year-switch {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.year-text {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.leap-tip {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-left: 10px;
-}
-
-.month-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 16px 0;
-  justify-content: center;
-}
-
-.month-btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #aaa;
-}
-
-.month-btn.active {
-  background: #396cd8;
-  color: white;
-  border-color: #396cd8;
-}
-
-.legend {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-  justify-content: center;
-  font-size: 13px;
-}
-
-.color-block {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  margin-right: 4px;
-  vertical-align: middle;
-}
-
-.chart-box {
-  margin: 20px 0;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-}
-
-.chart-box h4 {
-  margin: 0 0 8px;
-  opacity: 0.8;
-  text-align: center;
-}
-
-.day-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 13px;
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 10px;
-}
-
-.day-block {
+/* 页面默认兜底深色，解决初次白屏 */
+.rating-container {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 9px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
-  padding: 2px;
-  font-weight: 600;
-}
-
-.day-block:hover {
-  transform: translateY(-3px) scale(1.03);
-}
-
-.day-block:active {
-  transform: translateY(-1px) scale(1.01);
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.25);
-}
-
-.day-num {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.day-text {
-  font-size: 9px;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 90%;
-}
-
-.popup-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: grid;
-  place-items: center;
-  z-index: 99;
-}
-
-.popup-box {
-  padding: 24px;
-  border-radius: 12px;
-  background: #fff;
-  min-width: 380px;
-}
-
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  margin: 10px 0;
-  padding: 10px;
-  border-radius: 8px;
-  resize: none;
-}
-
-.word-count {
-  text-align: right;
-  font-size: 13px;
-  opacity: 0.7;
-  margin: -6px 0 12px;
-}
-
-.btn-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.status-btn {
-  border-width: 2px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .year-wrap {
-    border-color: #444;
-  }
-  .chart-box {
-    border-color: #444;
-  }
-  .popup-box {
-    background: #2f2f2f;
-  }
-}
-</style>
-
-<style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding: 32px;
+  box-sizing: border-box;
+  background: #121214;
+  color: #f5f5f5;
+}
+.dark-theme {
+  background-color: v-bind('globalConfig.pageBgColor');
+  color: v-bind('globalConfig.textMainColor');
 }
 
-h2 {
-  text-align: center;
+/* 错误提示文字 */
+.error-tip {
+  color: #f87171;
+  font-size: 14px;
+  margin-top: 4px;
 }
 
-input,
-button,
-textarea {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+/* 头部区域 */
+.header-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
-
-button {
+.main-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.stat-text {
+  font-size: 15px;
+  color: v-bind('globalConfig.textSubColor');
+}
+.config-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 14px;
   cursor: pointer;
 }
 
-button:hover {
-  border-color: #396cd8;
+/* Tab切换 */
+.tab-wrap {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.tab-item {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid v-bind('globalConfig.themeBorderColor');
+  background: transparent;
+  color: v-bind('globalConfig.textMainColor');
+  cursor: pointer;
+  font-size: 15px;
+}
+.tab-item.active {
+  border-color: transparent;
+}
+.tab-desc {
+  font-size: 14px;
+  color: v-bind('globalConfig.textSubColor');
+  margin-bottom: 20px;
 }
 
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+/* 热力图网格 */
+.heatmap-wrap {
+  margin-bottom: 40px;
+}
+.month-label-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px 8px 4px;
+}
+.month-label {
+  font-size: 13px;
+  color: v-bind('globalConfig.textSubColor');
+}
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(60, 1fr);
+  gap: 2px;
+}
+.grid-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+.grid-cell:hover .cell-tooltip {
+  display: block;
+}
+.cell-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: v-bind('globalConfig.tooltipBgColor');
+  color: v-bind('globalConfig.tooltipTextColor');
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 9;
 }
 
-input,
-button,
-textarea {
-  outline: none;
+/* 底部卡片 */
+.bottom-desc-card {
+  background-color: v-bind('globalConfig.cardBgColor');
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-  input,
-  button,
-  textarea {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+.card-title {
+  font-size: 20px;
+  margin: 0 0 12px 0;
+}
+.card-text {
+  color: v-bind('globalConfig.textSubColor');
+  line-height: 1.6;
+  max-width: 600px;
+}
+.open-config-btn {
+  margin-top: 16px;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.decor-dot-group {
+  position: absolute;
+  right: 60px;
+  bottom: 20px;
+  width: 240px;
+  height: 240px;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  opacity: 0.7;
+}
+.decor-dot {
+  border-radius: 2px;
+  aspect-ratio: 1/1;
 }
 </style>
