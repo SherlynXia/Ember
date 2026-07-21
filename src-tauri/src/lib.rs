@@ -1,13 +1,15 @@
+#![allow(dependency_on_unit_never_type_fallback)]   // 忽略单元类型不存在的警告
+
 mod models;
 mod storage;
 mod services;
 mod commands;
 
 // 从重导出路径导入命令函数
-use commands::{create_task, complete_task, get_tasks_by_date, get_daily_rating, get_heatmap_data};
-use storage::load_state;  // 用于加载数据
+use commands::{create_task, complete_task, get_tasks_by_date, get_daily_rating, save_daily_rating, get_heatmap_data};
 use models::AppState;
 use std::sync::Mutex;
+use storage::load_state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +24,7 @@ pub fn run() {
             complete_task,
             get_tasks_by_date,
             get_daily_rating,
+            save_daily_rating,
             get_heatmap_data,
         ])
         .run(tauri::generate_context!())

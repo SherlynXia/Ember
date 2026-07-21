@@ -12,15 +12,16 @@ pub fn update_daily_rating(state: &mut AppState, date: NaiveDate) {
         // 没有任务，则设置默认灰色
         let rating = DailyRating {
             date,
-            productivity_color: "gray".to_string(),
-            work_hours: 0.0,
+            status: 0,                    // ← 新增
+            comment: None,
             mood_emoji: "😐".to_string(),
+            productivity_color: "rgba(136, 136, 136, 0.85)".to_string(),
+            work_hours: 0.0,
             achievement_score: 0,
             mit_completion_rate: 0.0,
             task_count_delta: 0,
             has_overdue: false,
             has_milestone: false,
-            comments: vec![],
         };
         state.daily_ratings.insert(date, rating);
         return;
@@ -68,15 +69,16 @@ pub fn update_daily_rating(state: &mut AppState, date: NaiveDate) {
 
     let rating = DailyRating {
         date,
-        productivity_color: color.to_string(),
-        work_hours: total_hours,
-        mood_emoji,
-        achievement_score: score,
-        mit_completion_rate: mit_rate,
-        task_count_delta: delta,
-        has_overdue,
+        status: 0,                    // ← 新增
+        comment: None,
+        mood_emoji: "😐".to_string(),
+        productivity_color: "rgba(136, 136, 136, 0.85)".to_string(),
+        work_hours: 0.0,
+        achievement_score: 0,
+        mit_completion_rate: 0.0,
+        task_count_delta: 0,
+        has_overdue: false,
         has_milestone: false,
-        comments: vec![],
     };
 
     state.daily_ratings.insert(date, rating);
