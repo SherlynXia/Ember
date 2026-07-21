@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
 // 5档评价状态
-type DayStatus = 0 | 1 | 2 | 3 | 4 | 5;
+type DayStatus = 0 | 1 | 2 | 3 | 4 ;
 
 // 状态对应分数、颜色、阴影、emoji
 const statusScoreMap: Record<DayStatus, number> = {
@@ -11,17 +11,45 @@ const statusScoreMap: Record<DayStatus, number> = {
   1: 1, // 很差 红
   2: 2, // 一般 橙
   3: 3, // 普通 黄
-  4: 4, // 良好 浅绿
-  5: 5, // 优秀 深绿
+  4: 4, // 优秀 深绿
 };
 
 const statusMap = [
-  { color: "#888", shadow: "#666", emoji: "⬜", label: "无记录", score: 0 },
-  { color: "#ef4444", shadow: "#b91c1c", emoji: "❌", label: "很差（红）", score: 1 },
-  { color: "#fb923c", shadow: "#c2410c", emoji: "⚠️", label: "一般（橙）", score: 2 },
-  { color: "#facc15", shadow: "#a16207", emoji: "🟡", label: "普通（黄）", score: 3 },
-  { color: "#4ade80", shadow: "#16a34a", emoji: "🟢", label: "良好（浅绿）", score: 4 },
-  { color: "#22c55e", shadow: "#15803d", emoji: "✅", label: "优秀（深绿）", score: 5 },
+  {
+    color: 
+    "rgba(18,24,21,0.3)",
+    emoji: "⬜",
+    label: "无记录",
+    score: 0
+  },
+  {
+    color: 
+     "rgba(18,70,43,0.4)",
+    emoji: "😫",
+    label: "累/没进展",
+    score: 1
+  },
+  {
+    color: 
+     "rgba(18,108,54,0.5)",
+    emoji: "😐",
+    label: "一般/平淡",
+    score: 2
+  },
+  {
+    color: 
+     "rgba(18,128,58,0.6)",
+    emoji: "😊",
+    label: "爽/有成就感",
+    score: 3
+  },
+  {
+    color: 
+     "rgba(30,148,80,0.7)",
+    emoji: "🥳",
+    label: "超常发挥",
+    score: 4
+  }
 ];
 
 type MonthRecord = Record<number, { status: DayStatus; text: string }>;
@@ -177,17 +205,15 @@ watch(allYearData, async (val) => {
           preserveAspectRatio="none"
         >
           <!-- 5档横向参考线 -->
-          <line x1="0" y1="20" x2="720" y2="20" stroke="#888" stroke-width="0.5" opacity="0.4" />
           <line x1="0" y1="48" x2="720" y2="48" stroke="#888" stroke-width="0.5" opacity="0.4" />
           <line x1="0" y1="76" x2="720" y2="76" stroke="#888" stroke-width="0.5" opacity="0.4" />
           <line x1="0" y1="104" x2="720" y2="104" stroke="#888" stroke-width="0.5" opacity="0.4" />
           <line x1="0" y1="132" x2="720" y2="132" stroke="#888" stroke-width="0.5" opacity="0.4" />
           <!-- 等级文字 -->
-          <text x="8" y="18" font-size="11" fill="#aaa">优秀</text>
-          <text x="8" y="46" font-size="11" fill="#aaa">良好</text>
-          <text x="8" y="74" font-size="11" fill="#aaa">普通</text>
-          <text x="8" y="102" font-size="11" fill="#aaa">一般</text>
-          <text x="8" y="130" font-size="11" fill="#aaa">很差</text>
+          <text x="8" y="45" fill="#aaa">良好</text>
+          <text x="8" y="73" fill="#aaa">普通</text>
+          <text x="8" y="101" fill="#aaa">一般</text>
+          <text x="8" y="129" fill="#aaa">很差</text>
           <path
             :d="curveData.reduce((path, point, idx) => {
               const totalWidth = 700;
@@ -219,7 +245,7 @@ watch(allYearData, async (val) => {
           class="day-block"
           :style="{
             background: statusMap[getDayInfo(day).status].color,
-            boxShadow: `inset 0 -4px 0 ${statusMap[getDayInfo(day).status].shadow}, 0 2px 8px rgba(0,0,0,0.35)`
+            boxShadow: `inset 0 -4px 0 ${statusMap[getDayInfo(day).status]}, 0 2px 8px rgba(0,0,0,0.35)`
           }"
           @click="openEdit(day)"
         >
