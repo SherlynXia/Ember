@@ -59,3 +59,52 @@ energy_score	number | null	精力评分 1~5
 value_score	number | null	价值评分 1~5
 comment	string | null	任务评语
 created_at	string	创建日期
+
+
+src
+├─ types/          
+# 【全局类型定义】数据格式说明书、前后端交互契约
+│  └─ rating.ts
+# 评分模块全部TS类型定义：DailyRating单条记录、GlobalThemeConfig全局配色、GridCell热力图格子、RatingRes后端返回数据包
+# 所有组件、composables统一从这里导入类型，TS校验数据结构，防止字段写错
+
+├─ composables/    
+# 【业务逻辑层】纯TS代码，无HTML、无样式，和界面完全解耦，逻辑可复用
+│  ├─ useRatingApi.ts
+# 负责与Tauri Rust后端通信，发起invoke请求
+# 获取全局主题配色、获取全部评分原始数据；存放全局响应式状态（评分列表、配色、加载状态）
+│  └─ useRatingHeatmap.ts
+# 热力图专属计算逻辑
+# 接收原始评分数组，自动派生：打卡总天数、月份范围、热力图格子数组等页面渲染需要的计算数据
+
+├─ components/rating/  
+# 【UI小组件，页面积木】只负责渲染界面+样式，不主动请求后端
+# 所有数据、配置统一由父页面通过props传入，单一职责，一块界面对应一个文件
+│  ├─ RatingHeader.vue
+# 页面顶部头部区域：标题、打卡统计文字、加载提示、报错提示、打开配色面板按钮
+│  ├─ RatingTabBar.vue
+# 顶部标签切换栏：【每日评分 | 成长度】，控制页面视图切换
+│  ├─ RatingHeatmap.vue
+# 热力图主体区域：渲染日期色块、月份标尺、悬浮tooltip、格子点击事件
+│  ├─ RatingGrowthPanel.vue
+# 成长度视图面板（预留扩展），切换标签后展示，后续用来放置趋势图表
+│  └─ RatingFooterCard.vue
+# 页面底部卡片：说明文字、装饰圆点、底部配色设置按钮
+
+├─ views/          
+# 【完整页面容器】一整张独立页面，承上启下的调度中心
+│  └─ RatingRecord.vue
+# 评分记录页面主页面
+# 1.引入composables拿到数据与计算结果
+# 2.导入所有rating下的UI子组件
+# 3.把数据、全局配色通过props下发给各个子组件
+# 4.统一处理页面生命周期、各类点击事件、视图切换
+
+├─ App.vue         
+# 【项目顶层根组件】整个Vue应用最外层容器
+# 当前单页面结构：直接载入并渲染RatingRecord页面
+# 未来做多页面/弹窗时，可以在这里增加路由、全局弹窗管理
+
+└─ main.ts         
+# 【程序启动入口】整个前端最先执行的代码
+# 创建Vue应用实例、挂载到DOM、初始化环境、衔接Tauri运行环境
