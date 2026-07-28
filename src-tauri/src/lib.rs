@@ -6,7 +6,11 @@ mod services;
 mod commands;
 
 // 从重导出路径导入命令函数
-use commands::{create_task, complete_task, get_tasks_by_date, get_daily_rating, save_daily_rating, get_heatmap_data};
+use commands::{
+    create_task, complete_task, get_tasks_by_date,
+    save_daily_rating, get_daily_rating, get_rating_list, get_day_detail, delete_daily_rating,
+    get_heatmap_data,
+};
 use models::AppState;
 use std::sync::Mutex;
 use storage::load_state;
@@ -23,8 +27,11 @@ pub fn run() {
             create_task,
             complete_task,
             get_tasks_by_date,
-            get_daily_rating,
             save_daily_rating,
+            get_daily_rating,
+            get_rating_list,
+            get_day_detail,
+            delete_daily_rating,
             get_heatmap_data,
         ])
         .run(tauri::generate_context!())

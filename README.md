@@ -59,17 +59,26 @@ pub struct Task {
 #### DailyRating - 每日评分模型
 ```rust
 pub struct DailyRating {
-    pub date: NaiveDate,                  // 日期
-    pub status: u8,                       // 状态等级 0-5
-    pub productivity_color: String,       // 生产力颜色（RGBA字符串）
-    pub work_hours: f32,                  // 有效专注时长
-    pub comment: Option<String>,          // 每日评语
-    pub mood_emoji: String,               // 心情表情
-    pub achievement_score: u8,            // 成就分 0-100
-    pub mit_completion_rate: f32,         // MIT完成率
-    pub task_count_delta: i8,             // 与昨日任务量差值
-    pub has_overdue: bool,                // 是否有逾期任务
-    pub has_milestone: bool,              // 是否有里程碑
+    pub date: NaiveDate,
+
+    // === 用户直接填写的核心字段 ===
+    pub work_type: String,          // 工作状态类型: "green"/"blue"/"orange"/"gray"
+    pub energy_score: u8,           // 精力消耗分 1-5（纵轴）
+    pub value_score: u8,            // 贡献价值分 1-5（横轴）
+    pub work_hours: f32,            // 有效专注时长（小时）
+    pub mood_emoji: String,         // 心情表情: "😊"/"😐"/"😫"/"🥳"
+    pub comment: Option<String>,    // 每日评语（可选，≤50字）
+
+    // === 后端计算生成的字段 ===
+    pub productivity_color: String, // 最终RGBA颜色字符串
+    pub achievement_score: u8,      // 综合成就分 0-100
+
+    // === 扩展字段（自动统计）===
+    pub status: u8,                 // 0-5 兼容旧版
+    pub mit_completion_rate: f32,   // MIT任务完成率
+    pub task_count_delta: i8,       // 与昨日任务量差值
+    pub has_overdue: bool,          // 是否有逾期任务
+    pub has_milestone: bool,        // 是否达成里程碑
 }
 ```
 
@@ -98,8 +107,11 @@ pub struct AppState {
 
 | 命令名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
-| `save_daily_rating` | `date_str: String`<br>`status: u8`<br>`comment: Option<String>` | `Result<(), String>` | 保存每日评分（基础版） |
+| `save_daily_rating` | `date_str: String`<br>`work_type: String`<br>`energy_score: u8`<br>`value_score: u8`<br>`work_hours: f32`<br>`mood_emoji: String`<br>`comment: Option<String>` | `Result<DailyRating, String>` | **保存每日评分（完整版）**，根据 work_type + energy/value 计算颜色 |
 | `get_daily_rating` | `date_str: String` | `Result<DailyRating, String>` | 获取指定日期的评分 |
+| `get_rating_list` | `start_date: String`<br>`end_date: String` | `Result<Vec<DailyRating>, String>` | 获取日期范围内的评分列表（热力图用） |
+| `get_day_detail` | `date_str: String` | `Result<{rating, tasks}, String>` | 获取某天完整详情（评分 + 任务列表） |
+| `delete_daily_rating` | `date_str: String` | `Result<(), String>` | 删除指定日期的评分 |
 
 #### 统计相关命令 (`stats_commands.rs`)
 
@@ -122,15 +134,12 @@ pub fn deviation_color(deviation: f32, threshold: f32) -> &'static str
 
 #### stats.rs - 统计服务
 ```rust
-// 更新某天的综合评分（根据当天完成任务自动计算）
+// 根据任务完成情况自动计算并更新某天的 DailyRating
 pub fn update_daily_rating(state: &mut AppState, date: NaiveDate)
-```
 
-**当前实现状态**: `update_daily_rating` 函数目前返回硬编码的默认值，需要根据实际业务逻辑完善：
-- 根据任务完成情况计算工作时长
-- 根据 energy_score/value_score 计算热力图颜色饱和度
-- 统计 MIT 完成率
-- 计算成就分数
+// 合并自动计算和手动输入的数据
+pub fn merge_daily_rating(auto_rating: &DailyRating, manual_rating: DailyRating) -> DailyRating
+```
 
 ---
 
@@ -154,6 +163,36 @@ pub fn save_state(state: &AppState) -> Result<(), String>
 
 ---
 
+## 🎨 热力图颜色规则
+
+### 色相（工作状态类型 - 用户选择）
+| 类型 | RGB值 | 含义 |
+|------|-------|------|
+| green | (34, 197, 94) | 绿色系 - 高产日 |
+| blue | (59, 130, 246) | 蓝色系 - 学习日 |
+| orange | (251, 146, 60) | 橙色系 - 忙碌但低效日 |
+| gray | (136, 136, 136) | 灰色系 - 休息/摸鱼日 |
+
+### 饱和度（由 energy/value 效率计算）
+```rust
+// 效率指数 = value_score / energy_score
+// energy_score: 1-5 (1=低消耗，5=高消耗)
+// value_score: 1-5 (1=低价值，5=高价值)
+let efficiency = value_score / energy_score;
+
+// 饱和度范围 0.3 - 1.0
+let saturation = 0.3 + (efficiency.min(2.0) / 2.0) * 0.7;
+
+// 最终颜色
+productivity_color = "rgba(r, g, b, saturation)"
+```
+
+**效果：**
+- **深色（高饱和度）**: 高价值 + 低消耗 = 高效率（黄金区）
+- **浅色（低饱和度）**: 低价值 + 高消耗 = 低效率（垃圾区）
+
+---
+
 ## 🎨 前端架构 (Vue3 + TypeScript)
 
 ### 组件结构
@@ -163,39 +202,9 @@ src/components/rating/
 ├── RatingHeader.vue        # 页面头部（统计信息、配置按钮）
 ├── RatingTabBar.vue        # 标签切换栏（评分/成长）
 ├── RatingHeatmap.vue       # 热力图网格展示
-├── RatingGrowthPanel.vue   # 成长面板（待实现）
-└── RatingFooterCard.vue    # 底部统计卡片
-```
-
-### 组合式函数
-
-#### useRatingApi.ts
-```typescript
-// 获取评分列表和主题配置
-const fetchAllData: () => Promise<void>
-
-// 返回的数据
-{
-  ratingList: DailyRating[],      // 评分列表
-  globalConfig: GlobalThemeConfig, // 主题配置
-  continueDays: number,           // 连续记录天数
-  loading: boolean,
-  loadError: boolean
-}
-```
-
-#### useRatingHeatmap.ts
-```typescript
-// 热力图数据处理
-{
-  totalRecordDays: number,        // 总记录天数
-  totalRecordCount: number,       // 总记录数
-  hasOverflowRecord: boolean,     // 是否超出显示限制
-  fullDisplayMonthList: number[], // 显示的月份列表
-  gridCellList: GridCell[],       // 网格单元格数据
-  dotTotalList: number[],         // 点阵统计数据
-  dotGridStyle: object            // 点阵样式
-}
+├── RatingGrowthPanel.vue   # 成长面板
+├── RatingFooterCard.vue    # 底部统计卡片
+└── RatingInputModal.vue    # 每日评分输入弹窗（待实现）
 ```
 
 ### 类型定义 (`src/types/rating.ts`)
@@ -203,12 +212,15 @@ const fetchAllData: () => Promise<void>
 ```typescript
 interface DailyRating {
   date: string
-  status: number
-  comment: string | null
-  mood_emoji: string
-  productivity_color: string    // 热力图单元格背景色
+  work_type: string              // "green" | "blue" | "orange" | "gray"
+  energy_score: number           // 1-5
+  value_score: number            // 1-5
   work_hours: number
-  achievement_score: number
+  mood_emoji: string             // "😊" | "😐" | "😫" | "🥳"
+  comment: string | null
+  productivity_color: string     // 热力图单元格背景色
+  achievement_score: number      // 0-100
+  status: number
   mit_completion_rate: number
   task_count_delta: number
   has_overdue: boolean
@@ -231,7 +243,39 @@ interface GridCell {
 ```typescript
 import { invoke } from '@tauri-apps/api/core'
 
-// 创建任务
+// 1. 保存每日评分（核心功能）
+const rating = await invoke<DailyRating>("save_daily_rating", {
+  dateStr: "2025-07-27",
+  workType: "green",        // 色相选择
+  energyScore: 2,           // 精力消耗 1-5（纵轴）
+  valueScore: 5,            // 贡献价值 1-5（横轴）
+  workHours: 8.5,           // 工作时长
+  moodEmoji: "😊",          // 心情表情
+  comment: "今天效率很高，完成了重要任务"
+})
+// 返回的 rating.productivity_color 可直接用于热力图显示
+
+// 2. 获取单日评分
+const rating = await invoke<DailyRating>("get_daily_rating", {
+  dateStr: "2025-07-27"
+})
+
+// 3. 获取日期范围评分（热力图用）
+const ratings = await invoke<DailyRating[]>("get_rating_list", {
+  startDate: "2025-07-01",
+  endDate: "2025-07-31"
+})
+
+// 4. 获取某天详情（右侧面板用）
+const detail = await invoke("get_day_detail", {
+  dateStr: "2025-07-27"
+})
+// 返回: { rating: DailyRating, tasks: Task[] }
+
+// 5. 删除评分
+await invoke("delete_daily_rating", { dateStr: "2025-07-27" })
+
+// 6. 创建任务
 const task = await invoke<Task>("create_task", {
   title: "完成项目文档",
   estimatedTime: 2.5,
@@ -239,7 +283,7 @@ const task = await invoke<Task>("create_task", {
   isImportant: true
 })
 
-// 完成任务（带评分）
+// 7. 完成任务
 await invoke("complete_task", {
   taskId: 1,
   actualTime: 3.0,
@@ -247,12 +291,7 @@ await invoke("complete_task", {
   emojiMood: "😊",
   energyScore: 3,
   valueScore: 5,
-  comment: "比预期耗时久但质量很好"
-})
-
-// 获取某日评分
-const rating = await invoke<DailyRating>("get_daily_rating", {
-  dateStr: "2025-07-27"
+  comment: "质量很好"
 })
 ```
 
@@ -281,84 +320,35 @@ npm run dev
 
 ## 📋 功能实现状态
 
-### 已实现 ✅
-- [x] 基础任务创建与完成
-- [x] 任务字段支持 energy_score/value_score/emoji_mood
-- [x] 每日评分基础数据结构
-- [x] 热力图网格展示
+### 后端已实现 ✅
+- [x] 数据模型（Task, DailyRating, AppState）
+- [x] 热力图颜色计算（色相 + 饱和度）
+- [x] 保存每日评分（`save_daily_rating`）
+- [x] 查询评分（单日/范围/详情）
+- [x] 删除评分
+- [x] 任务创建与完成
+- [x] 自动统计服务（`update_daily_rating`）
 - [x] 数据本地持久化
-- [x] 基础 Tauri 命令接口
 
-### 待实现 🚧
-- [ ] 完整的每日评分输入弹窗（Emoji选择、工作状态选择、二维评分图表）
-- [ ] 根据二维评分计算热力图颜色饱和度（高价值+低消耗=深色）
-- [ ] 右侧面板展示当天任务清单
-- [ ] 悬停浮窗展示详细信息
-- [ ] 完善 `update_daily_rating` 统计逻辑
-- [ ] 新增/完善 Tauri 命令接口（见下方规划）
+### 前端已实现 ✅
+- [x] 更新 TypeScript 类型定义（DailyRating, Task, DayDetail, SaveRatingForm）
+- [x] 修改 API 调用（适配后端命令）
+- [x] 每日评分输入弹窗（RatingInputModal.vue）
+  - Emoji 心情选择（😊😐😫🥳）
+  - 工作状态选择（绿/蓝/橙/灰）
+  - 二维评分图表（能量-价值坐标）
+  - 工作时长输入
+  - 评语输入
+- [x] 右侧面板（DayDetailPanel.vue）
+  - 显示当天评分详情
+  - 显示任务清单
+  - 编辑/添加评分按钮
+- [x] 热力图点击交互
 
----
-
-## 🔮 计划新增的 Tauri 命令
-
-### 每日评分完整版
-```rust
-#[command]
-pub fn save_daily_rating_full(
-    date: String,
-    work_type: String,        // "green" | "blue" | "orange" | "gray"
-    energy_score: u8,         // 1-5 精力消耗
-    value_score: u8,          // 1-5 贡献价值
-    work_hours: f32,
-    mood_emoji: String,       // "😊" | "😐" | "😫" | "🥳"
-    comment: Option<String>,
-) -> Result<DailyRating, String>
-```
-
-### 获取某天完整数据（右侧面板用）
-```rust
-#[command]
-pub fn get_day_detail(
-    date: String,
-) -> Result<DayDetail, String>
-
-struct DayDetail {
-    rating: DailyRating,
-    tasks: Vec<Task>,
-}
-```
-
-### 获取日期范围评分列表
-```rust
-#[command]
-pub fn get_rating_list_by_range(
-    start_date: String,
-    end_date: String,
-) -> Result<Vec<DailyRating>, String>
-```
-
----
-
-## 🎨 热力图颜色规则
-
-### 色相（工作状态类型）
-| 类型 | 颜色 | 含义 |
-|------|------|------|
-| green | 绿色系 | 高产日 |
-| blue | 蓝色系 | 学习日 |
-| orange | 橙色系 | 忙碌但低效日 |
-| gray | 灰色系 | 休息/摸鱼日 |
-
-### 饱和度（投入程度）
-由二维评分计算得出：
-- **深色（高饱和度）**: 高价值 + 低消耗（黄金区）
-- **浅色（低饱和度）**: 低价值 + 高消耗（垃圾区）
-
-计算公式（规划中）：
-```rust
-// 效率指数 = value_score / energy_score
-// 饱和度 = f(效率指数, work_hours)
-```
+### 前端待优化 🚧
+- [ ] 悬停浮窗展示详细信息（当前只有简单的 tooltip）
+- [ ] 响应式布局优化
+- [ ] 加载状态优化
 
 ---
 
@@ -387,12 +377,15 @@ pub fn get_rating_list_by_range(
   "daily_ratings": {
     "2025-07-27": {
       "date": "2025-07-27",
-      "status": 5,
-      "productivity_color": "rgba(34, 197, 94, 0.85)",
+      "work_type": "green",
+      "energy_score": 2,
+      "value_score": 5,
       "work_hours": 8.5,
-      "comment": "今天效率很高",
       "mood_emoji": "😊",
-      "achievement_score": 85,
+      "comment": "今天效率很高",
+      "productivity_color": "rgba(34, 197, 94, 1.00)",
+      "achievement_score": 100,
+      "status": 0,
       "mit_completion_rate": 1.0,
       "task_count_delta": 2,
       "has_overdue": false,

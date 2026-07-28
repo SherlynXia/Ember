@@ -1,24 +1,40 @@
 <template>
   <div class="rating-container dark-theme">
-      <RatingHeader
+    <RatingHeader
       :totalRecordDays="totalRecordDays"
       :totalRecordCount="totalRecordCount"
       :continueDays="continueDays"
       :loading="loading"
-      :loadError="loadError"
+      :loadError="!!error"
       :ratingList="ratingList"
       :primaryBtnStyle="primaryBtnStyle"
       :globalConfig="globalConfig"
-      @reload="fetchAllData"
+      @reload="loadInitialData"
       @open-config="handleOpenConfig"
     />
+
+    <!-- 记录今天按钮 -->
+    <div class="action-bar">
+      <button
+        class="record-today-btn"
+        :style="{
+          backgroundColor: globalConfig.themePrimaryColor,
+          color: '#fff'
+        }"
+        @click="openTodayInput"
+      >
+        <span class="btn-icon">✏️</span>
+        <span>记录今天</span>
+      </button>
+    </div>
+
     <RatingTabBar
       v-model:activeTab="activeTab"
       :globalConfig="globalConfig"
     />
 
-    <div class="tab-desc">
-      每日记录越多，热力色块颜色越深（色块颜色由后端 productivity_color 字段控制）
+    <div class="tab-desc" :style="{ color: globalConfig.textSubColor }">
+      每日记录越多，热力色块颜色越深（色块颜色由 work_type + energy/value 计算）
     </div>
 
     <RatingHeatmap
@@ -29,11 +45,11 @@
       :hasOverflowRecord="hasOverflowRecord"
       :maxCellNum="TOTAL_CELL"
       @cell-click="handleCellClick"
+      @cell-hover="handleCellHover"
     />
 
     <RatingGrowthPanel v-else :globalConfig="globalConfig" />
 
-    
     <RatingFooterCard
       :primaryBtnStyle="primaryBtnStyle"
       :dotGridStyle="dotGridStyle"
@@ -41,11 +57,35 @@
       :globalConfig="globalConfig"
       @open-config="handleOpenConfig"
     />
+
+    <!-- 每日评分输入弹窗 -->
+    <RatingInputModal
+      :visible="showInputModal"
+      :date="selectedDate"
+      :globalConfig="globalConfig"
+      :initialData="selectedRating || undefined"
+      :readonly="!isToday(selectedDate)"
+      @close="showInputModal = false"
+      @save="handleSaveRating"
+    />
+
+    <!-- 右侧详情面板 -->
+    <DayDetailPanel
+      :visible="showDetailPanel"
+      :date="selectedDate"
+      :rating="selectedRating"
+      :tasks="selectedTasks"
+      :loading="detailLoading"
+      :globalConfig="globalConfig"
+      @close="showDetailPanel = false"
+      @edit="handleEditRating"
+      @add="handleAddRating"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRatingApi } from '../composables/useRatingApi'
 import { useRatingHeatmap, TOTAL_CELL } from '../composables/useRatingHeatmap'
 
@@ -54,17 +94,25 @@ import RatingTabBar from '../components/rating/RatingTabBar.vue'
 import RatingHeatmap from '../components/rating/RatingHeatmap.vue'
 import RatingGrowthPanel from '../components/rating/RatingGrowthPanel.vue'
 import RatingFooterCard from '../components/rating/RatingFooterCard.vue'
-import type { GridCell } from '../types/rating'
+import RatingInputModal from '../components/rating/RatingInputModal.vue'
+import DayDetailPanel from '../components/rating/DayDetailPanel.vue'
+
+import type { GridCell, DailyRating, SaveRatingForm } from '../types/rating'
 
 const activeTab = ref<'rating' | 'growth'>('rating')
 
+// 使用新的 API 组合式函数
 const {
   ratingList,
+  currentRating,
+  currentTasks,
   globalConfig,
-  continueDays,
   loading,
-  loadError,
-  fetchAllData
+  error,
+  saveDailyRating,
+  getDayDetail,
+  loadInitialData,
+  getToday
 } = useRatingApi()
 
 const {
@@ -77,6 +125,15 @@ const {
   dotGridStyle
 } = useRatingHeatmap(ratingList)
 
+// 弹窗和面板状态
+const showInputModal = ref(false)
+const showDetailPanel = ref(false)
+const selectedDate = ref(getToday())
+const selectedRating = ref<DailyRating | null>(null)
+const selectedTasks = ref([])
+const detailLoading = ref(false)
+
+// 按钮样式
 const primaryBtnStyle = computed(() => ({
   backgroundColor: globalConfig.value.themePrimaryColor,
   color: globalConfig.value.textMainColor,
@@ -84,19 +141,104 @@ const primaryBtnStyle = computed(() => ({
   transition: 'opacity 0.2s ease'
 }))
 
-const handleCellClick = (cell: GridCell) => {
-  if (!cell.record) return
-  console.log('选中记录：', cell.record)
+// 连续记录天数（简化计算）
+const continueDays = computed(() => {
+  if (ratingList.value.length === 0) return 0
+  // TODO: 实现真正的连续记录计算
+  return ratingList.value.length
+})
+
+// 判断是否为今天
+const isToday = (dateStr: string): boolean => {
+  return dateStr === getToday()
 }
 
+// 打开今天的输入弹窗
+const openTodayInput = async () => {
+  const today = getToday()
+  selectedDate.value = today
+
+  // 检查今天是否已有记录
+  const todayRating = ratingList.value.find(r => r.date === today)
+  if (todayRating) {
+    selectedRating.value = todayRating
+  } else {
+    selectedRating.value = null
+  }
+
+  showInputModal.value = true
+}
+
+// 点击热力图格子
+const handleCellClick = async (cell: GridCell) => {
+  if (!cell.date) return
+
+  selectedDate.value = cell.date
+  selectedRating.value = cell.record
+
+  // 加载详情
+  detailLoading.value = true
+  showDetailPanel.value = true
+
+  try {
+    const detail = await getDayDetail(cell.date)
+    selectedTasks.value = detail.tasks
+  } catch (err) {
+    console.error('加载详情失败:', err)
+    selectedTasks.value = []
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+// 悬停热力图格子
+let hoverTimeout: ReturnType<typeof setTimeout> | null = null
+
+const handleCellHover = (cell: GridCell) => {
+  // TODO: 实现悬停提示浮窗
+  // 可以在这里触发一个局部的 tooltip 事件
+}
+
+// 保存评分
+const handleSaveRating = async (form: SaveRatingForm) => {
+  try {
+    await saveDailyRating(form)
+    showInputModal.value = false
+
+    // 如果详情面板打开，刷新详情
+    if (showDetailPanel.value) {
+      const detail = await getDayDetail(form.date)
+      selectedRating.value = detail.rating
+      selectedTasks.value = detail.tasks
+    }
+  } catch (err) {
+    console.error('保存评分失败:', err)
+    alert('保存失败，请重试')
+  }
+}
+
+// 编辑评分
+const handleEditRating = () => {
+  showDetailPanel.value = false
+  showInputModal.value = true
+}
+
+// 添加评分
+const handleAddRating = () => {
+  selectedRating.value = null
+  showDetailPanel.value = false
+  showInputModal.value = true
+}
+
+// 打开配置
 const handleOpenConfig = () => {
-  console.log('打开配色配置面板')
+  console.log('打开配置面板')
+  // TODO: 实现配置面板
 }
 
-watch(globalConfig, () => {}, { deep: true })
-
+// 初始化
 onMounted(() => {
-  fetchAllData()
+  loadInitialData()
 })
 </script>
 
@@ -107,19 +249,58 @@ onMounted(() => {
   padding: 32px;
   box-sizing: border-box;
 }
+
 .dark-theme {
   background-color: v-bind('globalConfig.pageBgColor');
   color: v-bind('globalConfig.textMainColor');
 }
+
+.action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.record-today-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.record-today-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.btn-icon {
+  font-size: 16px;
+}
+
 .tab-desc {
   font-size: 14px;
-  color: v-bind('globalConfig.textSubColor');
   margin-bottom: 20px;
 }
 
 @media screen and (max-width: 768px) {
   .rating-container {
     padding: 16px;
+  }
+
+  .action-bar {
+    justify-content: center;
+  }
+
+  .record-today-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

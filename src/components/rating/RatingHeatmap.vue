@@ -18,6 +18,7 @@
           backgroundColor: cell.record ? cell.record.productivity_color : globalConfig.emptyCellColor
         }"
         @click="$emit('cell-click', cell)"
+        @mouseenter="$emit('cell-hover', cell)"
       >
         <div v-if="cell.record" class="cell-tooltip">
           {{ cell.record.date }} | {{ cell.record.mood_emoji }} {{ cell.record.comment || '无备注' }}
@@ -40,7 +41,7 @@ defineProps<{
   hasOverflowRecord: boolean
   maxCellNum: number
 }>()
-defineEmits(['cell-click'])
+defineEmits(['cell-click', 'cell-hover'])
 </script>
 
 <style scoped>
