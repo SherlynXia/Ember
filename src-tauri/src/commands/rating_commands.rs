@@ -2,7 +2,7 @@ use tauri::command;
 use crate::models::{AppState, DailyRating};
 use crate::storage::save_state;
 use std::sync::Mutex;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Local};
 
 // ==================== 颜色计算函数 ====================
 
@@ -144,6 +144,7 @@ pub fn get_daily_rating(
 }
 
 /// 获取日期范围内的评分列表（用于热力图展示）
+/// 只返回实际有记录的数据，今天及以后的未填写日期不返回
 #[command]
 pub fn get_rating_list(
     state: tauri::State<'_, Mutex<AppState>>,
@@ -157,14 +158,21 @@ pub fn get_rating_list(
     let end = NaiveDate::parse_from_str(&end_date, "%Y-%m-%d")
         .map_err(|_| "结束日期格式错误，请使用 YYYY-MM-DD".to_string())?;
 
+    // 获取今天的日期
+    let today = Local::now().naive_local().date();
+
     let mut result = Vec::new();
     let mut current = start;
 
     while current <= end {
-        let rating = state.daily_ratings.get(&current)
-            .cloned()
-            .unwrap_or_else(|| DailyRating::new_empty(current));
-        result.push(rating);
+        // 只处理今天及之前的日期
+        if current <= today {
+            // 只返回实际有记录的数据，不返回 new_empty
+            if let Some(rating) = state.daily_ratings.get(&current) {
+                result.push(rating.clone());
+            }
+        }
+        // 今天之后的日期直接跳过，不加入结果
         current = current + chrono::Duration::days(1);
     }
 

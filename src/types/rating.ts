@@ -8,7 +8,7 @@ export interface DailyRating {
   energy_score: number           // 精力消耗分 1-5（纵轴）
   value_score: number            // 贡献价值分 1-5（横轴）
   work_hours: number             // 有效专注时长（小时）
-  mood_emoji: 'ðŸ˜Š' | 'ðŸ˜�' | 'ðŸ˜«' | 'ðŸ¥³'  // 心情表情
+  mood_emoji: '😊' | '😐' | '😫' | '🥳'  // 心情表情
   comment: string | null         // 每日评语
 
   // === 后端计算生成的字段 ===
@@ -54,6 +54,16 @@ export interface GridCell {
   cellIndex: number
   date: string | null
   record: DailyRating | null
+  weekIndex: number
+  dayIndex: number
+  isInYearRange: boolean
+  isPastOrToday: boolean  // 是否是今天或之前的日期（可填写）
+}
+
+/** 月份标签 */
+export interface MonthLabel {
+  month: number
+  weekIndex: number
 }
 
 /** 全局主题配置 */
@@ -79,7 +89,7 @@ export interface SaveRatingForm {
   energy_score: number
   value_score: number
   work_hours: number
-  mood_emoji: 'ðŸ˜Š' | 'ðŸ˜�' | 'ðŸ˜«' | 'ðŸ¥³'
+  mood_emoji: '😊' | '😐' | '😫' | '🥳'
   comment: string
 }
 
@@ -93,7 +103,7 @@ export interface WorkTypeOption {
 
 /** 心情选项 */
 export interface MoodOption {
-  emoji: 'ðŸ˜Š' | 'ðŸ˜�' | 'ðŸ˜«' | 'ðŸ¥³'
+  emoji: '😊' | '😐' | '😫' | '🥳'
   label: string
   desc: string
 }

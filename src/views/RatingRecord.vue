@@ -40,10 +40,10 @@
     <RatingHeatmap
       v-if="activeTab === 'rating'"
       :gridCellList="gridCellList"
-      :fullDisplayMonthList="fullDisplayMonthList"
+      :monthLabels="monthLabels"
+      :currentYear="currentYear"
+      :today="today"
       :globalConfig="globalConfig"
-      :hasOverflowRecord="hasOverflowRecord"
-      :maxCellNum="TOTAL_CELL"
       @cell-click="handleCellClick"
       @cell-hover="handleCellHover"
     />
@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRatingApi } from '../composables/useRatingApi'
-import { useRatingHeatmap, TOTAL_CELL } from '../composables/useRatingHeatmap'
+import { useRatingHeatmap } from '../composables/useRatingHeatmap'
 
 import RatingHeader from '../components/rating/RatingHeader.vue'
 import RatingTabBar from '../components/rating/RatingTabBar.vue'
@@ -116,11 +116,11 @@ const {
 } = useRatingApi()
 
 const {
+  currentYear,
   totalRecordDays,
   totalRecordCount,
-  hasOverflowRecord,
-  fullDisplayMonthList,
   gridCellList,
+  monthLabels,
   dotTotalList,
   dotGridStyle
 } = useRatingHeatmap(ratingList)
