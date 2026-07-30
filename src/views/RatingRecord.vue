@@ -7,10 +7,8 @@
       :loading="loading"
       :loadError="!!error"
       :ratingList="ratingList"
-      :primaryBtnStyle="primaryBtnStyle"
       :globalConfig="globalConfig"
       @reload="loadInitialData"
-      @open-config="handleOpenConfig"
     />
 
     <!-- 记录今天按钮 -->
@@ -34,7 +32,7 @@
     />
 
     <div class="tab-desc" :style="{ color: globalConfig.textSubColor }">
-      每日记录越多，热力色块颜色越深（色块颜色由 work_type + energy/value 计算）
+       
     </div>
 
     <RatingHeatmap
@@ -51,11 +49,9 @@
     <RatingGrowthPanel v-else :globalConfig="globalConfig" />
 
     <RatingFooterCard
-      :primaryBtnStyle="primaryBtnStyle"
       :dotGridStyle="dotGridStyle"
       :dotTotalList="dotTotalList"
       :globalConfig="globalConfig"
-      @open-config="handleOpenConfig"
     />
 
     <!-- 每日评分输入弹窗 -->
@@ -146,13 +142,6 @@ const initialDataForModal = computed<Partial<SaveRatingForm> | undefined>(() => 
 })
 
 // 按钮样式
-const primaryBtnStyle = computed(() => ({
-  backgroundColor: globalConfig.value.themePrimaryColor,
-  color: globalConfig.value.textMainColor,
-  border: 'none',
-  transition: 'opacity 0.2s ease'
-}))
-
 // 连续记录天数（简化计算）
 const continueDays = computed(() => {
   if (ratingList.value.length === 0) return 0
@@ -243,11 +232,6 @@ const handleAddRating = () => {
 }
 
 // 打开配置
-const handleOpenConfig = () => {
-  console.log('打开配置面板')
-  // TODO: 实现配置面板
-}
-
 // 初始化
 onMounted(() => {
   loadInitialData()

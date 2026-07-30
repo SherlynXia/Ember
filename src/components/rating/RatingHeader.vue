@@ -3,7 +3,7 @@
     <div class="title-area">
       <h2 class="main-title">我的每日评分记录</h2>
       <div class="stat-text">
-        评分记录已陪伴你 {{ totalRecordDays }} 天，共 {{ totalRecordCount }} 条记录，最近连续 {{ continueDays }} 天打卡
+        评分记录已陪伴你 {{ totalRecordDays }} 天。
       </div>
       <div v-if="loading" class="loading-tip">⏳ 正在加载数据...</div>
       <div v-if="loadError" class="error-tip">
@@ -14,9 +14,6 @@
         暂无评分记录，快去创建第一条每日记录吧
       </div>
     </div>
-    <button class="config-btn" :style="primaryBtnStyle" @click="$emit('open-config')">
-      配色配置面板
-    </button>
   </div>
 </template>
 
@@ -29,10 +26,9 @@ defineProps<{
   loading: boolean
   loadError: boolean
   ratingList: DailyRating[]
-  primaryBtnStyle: Record<string, string>
   globalConfig: GlobalThemeConfig
 }>()
-defineEmits(['reload', 'open-config'])
+defineEmits(['reload'])
 </script>
 
 <style scoped>
@@ -80,17 +76,7 @@ defineEmits(['reload', 'open-config'])
   padding: 2px 8px;
   cursor: pointer;
 }
-.config-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.config-btn:hover {
-  opacity: 0.85;
-}
+
 @media screen and (max-width: 768px) {
   .main-title {
     font-size: 22px;
