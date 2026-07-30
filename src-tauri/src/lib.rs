@@ -9,7 +9,7 @@ mod commands;
 use commands::{
     create_task, complete_task, get_tasks_by_date,
     save_daily_rating, get_daily_rating, get_rating_list, get_day_detail, delete_daily_rating,
-    get_heatmap_data,
+    get_heatmap_data, get_achievement_trend,
 };
 use models::AppState;
 use std::sync::Mutex;
@@ -36,6 +36,7 @@ pub fn run() {
             get_day_detail,
             delete_daily_rating,
             get_heatmap_data,
+            get_achievement_trend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

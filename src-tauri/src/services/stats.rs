@@ -1,45 +1,9 @@
 use crate::models::{Task, DailyRating, AppState};
+use crate::services::{
+    generate_color,
+    calculate_achievement_score,
+};
 use chrono::NaiveDate;
-
-/// 根据工作状态类型获取基础色相（RGB）
-fn work_type_to_rgb(work_type: &str) -> (u8, u8, u8) {
-    match work_type {
-        "green" => (34, 197, 94),    // 绿色系 - 高产日
-        "blue" => (59, 130, 246),    // 蓝色系 - 学习日
-        "orange" => (251, 146, 60),  // 橙色系 - 忙碌但低效日
-        "gray" => (136, 136, 136),   // 灰色系 - 休息/摸鱼日
-        _ => (136, 136, 136),        // 默认灰色
-    }
-}
-
-/// 计算饱和度（alpha值）
-/// 高价值 + 低消耗 = 高饱和度（深色，接近1.0）
-/// 低价值 + 高消耗 = 低饱和度（浅色，接近0.3）
-fn calculate_saturation(energy_score: u8, value_score: u8) -> f32 {
-    if energy_score == 0 || value_score == 0 {
-        return 0.3;
-    }
-    let efficiency = value_score as f32 / energy_score as f32;
-    let saturation = 0.3 + (efficiency.min(2.0) / 2.0) * 0.7;
-    saturation.min(1.0).max(0.3)
-}
-
-/// 根据工作状态和二维评分生成最终RGBA颜色
-fn generate_color(work_type: &str, energy_score: u8, value_score: u8) -> String {
-    let (r, g, b) = work_type_to_rgb(work_type);
-    let alpha = calculate_saturation(energy_score, value_score);
-    format!("rgba({}, {}, {}, {:.2})", r, g, b, alpha)
-}
-
-/// 计算成就分数（0-100）
-fn calculate_achievement_score(energy_score: u8, value_score: u8) -> u8 {
-    if energy_score == 0 || value_score == 0 {
-        return 0;
-    }
-    let efficiency = value_score as f32 / energy_score as f32;
-    let score = (efficiency * value_score as f32 * 4.0).min(100.0) as u8;
-    score
-}
 
 /// 获取出现次数最多的表情
 fn get_most_frequent_emoji(moods: &[String]) -> String {
@@ -139,10 +103,10 @@ pub fn update_daily_rating(state: &mut AppState, date: NaiveDate) {
     // 7. 自动推断工作状态类型
     let work_type = infer_work_type(mit_rate, avg_satisfaction);
 
-    // 8. 计算成就分
+    // 8. 计算成就分（使用共享计算模块）
     let achievement_score = calculate_achievement_score(avg_energy_u8, avg_value_u8);
 
-    // 9. 生成颜色
+    // 9. 生成颜色（使用共享计算模块）
     let productivity_color = generate_color(&work_type, avg_energy_u8, avg_value_u8);
 
     // 10. 计算任务量变化（与昨天对比）
@@ -186,7 +150,7 @@ pub fn update_daily_rating(state: &mut AppState, date: NaiveDate) {
 /// 合并自动计算和手动输入的数据
 /// 当用户手动保存评分时，保留自动计算的统计字段，更新用户输入的字段
 pub fn merge_daily_rating(auto_rating: &DailyRating, manual_rating: DailyRating) -> DailyRating {
-    // 先计算颜色和成就分（借用 work_type）
+    // 先计算颜色和成就分（使用共享计算模块）
     let productivity_color = generate_color(
         &manual_rating.work_type,
         manual_rating.energy_score,
