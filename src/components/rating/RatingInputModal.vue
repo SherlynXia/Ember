@@ -566,8 +566,10 @@ const handleSave = async () => {
 
 .check-mark {
   font-size: 20px;
-  color: #3b82f6;
+  color: #ffffff;
   font-weight: bold;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .selected-value {
