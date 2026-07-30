@@ -107,3 +107,10 @@ export interface MoodOption {
   label: string
   desc: string
 }
+
+/** 成就趋势数据点 */
+export interface AchievementTrendPoint {
+  date: string
+  achievement_score: number
+  work_type: string
+}

@@ -5,7 +5,8 @@ import type {
   Task, 
   DayDetail, 
   GlobalThemeConfig, 
-  SaveRatingForm 
+  SaveRatingForm,
+  AchievementTrendPoint
 } from '../types/rating'
 
 // 默认主题配置
@@ -42,6 +43,7 @@ export function useRatingApi() {
   const globalConfig = ref<GlobalThemeConfig>(defaultThemeConfig)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const trendData = ref<AchievementTrendPoint[]>([])
 
   // ==================== 评分相关 API ====================
 
@@ -260,6 +262,31 @@ export function useRatingApi() {
     }
   }
 
+  // ==================== 统计相关 API ====================
+
+  /**
+   * 获取成就趋势数据（用于成长度趋势图）
+   * 对应后端命令: get_achievement_trend
+   */
+  const getAchievementTrend = async (days: number = 30): Promise<AchievementTrendPoint[]> => {
+    try {
+      loading.value = true
+      error.value = null
+      
+      const result = await invoke<AchievementTrendPoint[]>('get_achievement_trend', {
+        days
+      })
+      
+      trendData.value = result
+      return result
+    } catch (err) {
+      error.value = `获取趋势数据失败: ${err}`
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   // ==================== 辅助方法 ====================
 
   /**
@@ -301,6 +328,7 @@ export function useRatingApi() {
     globalConfig,
     loading,
     error,
+    trendData,
     
     // 评分 API
     saveDailyRating,
@@ -313,6 +341,9 @@ export function useRatingApi() {
     createTask,
     completeTask,
     getTasksByDate,
+    
+    // 统计 API
+    getAchievementTrend,
     
     // 辅助方法
     loadInitialData,

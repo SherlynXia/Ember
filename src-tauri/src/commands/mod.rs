@@ -12,4 +12,4 @@ pub use rating_commands::{
     get_day_detail,              // 获取某天完整详情（评分+任务）
     delete_daily_rating,         // 删除评分
 };
-pub use stats_commands::get_heatmap_data;
+pub use stats_commands::{get_heatmap_data, get_achievement_trend};

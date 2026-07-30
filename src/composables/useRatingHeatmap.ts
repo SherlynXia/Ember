@@ -151,9 +151,11 @@ export function useRatingHeatmap(ratingList: Ref<DailyRating[]>) {
     return ratingList.value.filter(r => r.date >= yearStart && r.date <= today.value).length
   })
 
+// ...existing code...
+
   // 底部点阵图（保留原有功能）
-  const DOT_COL = 12
-  const dotCount = DOT_COL * 10
+  const DOT_COL = 7 // 每行7个点  
+  const dotCount = DOT_COL * Math.ceil(TOTAL_WEEKS / DOT_COL) // 计算需要多少行点阵
   const dotTotalList = computed(() => Array.from({ length: dotCount }, (_, i) => i))
   const dotGridStyle = computed(() => ({
     gridTemplateColumns: `repeat(${DOT_COL}, 1fr)`

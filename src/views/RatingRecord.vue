@@ -63,7 +63,7 @@
       :visible="showInputModal"
       :date="selectedDate"
       :globalConfig="globalConfig"
-      :initialData="selectedRating || undefined"
+      :initialData="initialDataForModal"
       :readonly="!isToday(selectedDate)"
       @close="showInputModal = false"
       @save="handleSaveRating"
@@ -97,7 +97,7 @@ import RatingFooterCard from '../components/rating/RatingFooterCard.vue'
 import RatingInputModal from '../components/rating/RatingInputModal.vue'
 import DayDetailPanel from '../components/rating/DayDetailPanel.vue'
 
-import type { GridCell, DailyRating, SaveRatingForm } from '../types/rating'
+import type { GridCell, DailyRating, SaveRatingForm, Task } from '../types/rating'
 
 const activeTab = ref<'rating' | 'growth'>('rating')
 
@@ -129,9 +129,21 @@ const {
 const showInputModal = ref(false)
 const showDetailPanel = ref(false)
 const selectedDate = ref(getToday())
+// 当前日期（用于传递给子组件）
+const today = getToday()
 const selectedRating = ref<DailyRating | null>(null)
-const selectedTasks = ref([])
+const selectedTasks = ref<Task[]>([])
 const detailLoading = ref(false)
+
+// 为 RatingInputModal 准备兼容的 initialData（将 comment: null -> undefined）
+const initialDataForModal = computed<Partial<SaveRatingForm> | undefined>(() => {
+  if (!selectedRating.value) return undefined
+  const { comment, ...rest } = selectedRating.value as any
+  return {
+    ...(rest as any),
+    comment: comment ?? undefined
+  } as Partial<SaveRatingForm>
+})
 
 // 按钮样式
 const primaryBtnStyle = computed(() => ({
