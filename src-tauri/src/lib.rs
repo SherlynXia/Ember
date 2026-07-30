@@ -9,7 +9,7 @@ mod commands;
 use commands::{
     create_task, complete_task, get_tasks_by_date,
     save_daily_rating, get_daily_rating, get_rating_list, get_day_detail, delete_daily_rating,
-    get_heatmap_data, get_achievement_trend,
+    get_heatmap_data,
 };
 use models::AppState;
 use std::sync::Mutex;
@@ -23,6 +23,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(app_state))
         .invoke_handler(tauri::generate_handler![
             create_task,
@@ -34,7 +36,6 @@ pub fn run() {
             get_day_detail,
             delete_daily_rating,
             get_heatmap_data,
-            get_achievement_trend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

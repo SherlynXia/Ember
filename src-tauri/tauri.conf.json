@@ -30,5 +30,15 @@
     "icon": [
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://api.github.com/repos/SherlynXia/Ember/releases/latest"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1NTNCNTA2QTU2QzVFQTMKUldTalhteWxCclZUeFlSc1BoekpwdjFyZFZBK1EwTG8vU3p2UFV6TVNCNDByL0NvOXkvb3JYUWYK"
+    }
   }
 }
