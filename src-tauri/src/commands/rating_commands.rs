@@ -1,62 +1,12 @@
 use tauri::command;
 use crate::models::{AppState, DailyRating};
 use crate::storage::save_state;
+use crate::services::{
+    generate_color,
+    calculate_achievement_score,
+};
 use std::sync::Mutex;
 use chrono::{NaiveDate, Local};
-
-// ==================== 颜色计算函数 ====================
-
-/// 根据工作状态类型获取基础色相（RGB）
-fn work_type_to_rgb(work_type: &str) -> (u8, u8, u8) {
-    match work_type {
-        "green" => (34, 197, 94),    // 绿色系 - 高产日
-        "blue" => (59, 130, 246),    // 蓝色系 - 学习日
-        "orange" => (251, 146, 60),  // 橙色系 - 忙碌但低效日
-        "gray" => (136, 136, 136),   // 灰色系 - 休息/摸鱼日
-        _ => (136, 136, 136),        // 默认灰色
-    }
-}
-
-/// 计算饱和度（alpha值）
-/// 高价值 + 低消耗 = 高饱和度（深色，接近1.0）
-/// 低价值 + 高消耗 = 低饱和度（浅色，接近0.3）
-fn calculate_saturation(energy_score: u8, value_score: u8) -> f32 {
-    if energy_score == 0 || value_score == 0 {
-        return 0.3; // 默认低饱和度
-    }
-
-    // 效率指数 = 价值 / 消耗
-    // energy_score: 1-5 (1=低消耗，5=高消耗)
-    // value_score: 1-5 (1=低价值，5=高价值)
-    // 高价值+低消耗 = 高效率
-    let efficiency = value_score as f32 / energy_score as f32;
-
-    // 将效率指数映射到饱和度范围 0.3 - 1.0
-    // efficiency 范围大约是 0.2 (1/5) 到 5.0 (5/1)
-    // 我们希望 efficiency=1.0 时饱和度适中，efficiency>1 时饱和度高
-    let saturation = 0.3 + (efficiency.min(2.0) / 2.0) * 0.7;
-
-    saturation.min(1.0).max(0.3)
-}
-
-/// 根据工作状态和二维评分生成最终RGBA颜色
-fn generate_color(work_type: &str, energy_score: u8, value_score: u8) -> String {
-    let (r, g, b) = work_type_to_rgb(work_type);
-    let alpha = calculate_saturation(energy_score, value_score);
-    format!("rgba({}, {}, {}, {:.2})", r, g, b, alpha)
-}
-
-/// 计算成就分数（0-100）
-/// 基于效率指数和价值分
-fn calculate_achievement_score(energy_score: u8, value_score: u8) -> u8 {
-    if energy_score == 0 || value_score == 0 {
-        return 0;
-    }
-    // 效率指数 * 价值权重
-    let efficiency = value_score as f32 / energy_score as f32;
-    let score = (efficiency * value_score as f32 * 4.0).min(100.0) as u8;
-    score
-}
 
 // ==================== 命令函数 ====================
 
@@ -99,7 +49,7 @@ pub fn save_daily_rating(
     let date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
         .map_err(|_| "日期格式错误，请使用 YYYY-MM-DD".to_string())?;
 
-    // 计算生成字段
+    // 计算生成字段（使用共享计算模块）
     let productivity_color = generate_color(&work_type, energy_score, value_score);
     let achievement_score = calculate_achievement_score(energy_score, value_score);
 
@@ -139,7 +89,8 @@ pub fn get_daily_rating(
 
     match state.daily_ratings.get(&date) {
         Some(rating) => Ok(rating.clone()),
-        None => Ok(DailyRating::new_empty(date)),
+        None => Err("该日期暂无评分记录".to_string()),
+        // None => Ok(DailyRating::new_empty(date)), // 已禁用：不再返回默认空记录
     }
 }
 
@@ -191,10 +142,14 @@ pub fn get_day_detail(
     let date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
         .map_err(|_| "日期格式错误，请使用 YYYY-MM-DD".to_string())?;
 
-    // 获取评分
-    let rating = state.daily_ratings.get(&date)
-        .cloned()
-        .unwrap_or_else(|| DailyRating::new_empty(date));
+    // 获取评分（不再返回默认空记录）
+    let rating = match state.daily_ratings.get(&date) {
+        Some(r) => r.clone(),
+        None => return Err("该日期暂无评分记录".to_string()),
+    };
+    // let rating = state.daily_ratings.get(&date)
+    //     .cloned()
+    //     .unwrap_or_else(|| DailyRating::new_empty(date)); // 已禁用
 
     // 获取当天任务（创建或完成的）
     let tasks: Vec<&crate::models::Task> = state.tasks.iter()
