@@ -104,8 +104,6 @@ const activeTab = ref<'rating' | 'growth'>('rating')
 // 使用新的 API 组合式函数
 const {
   ratingList,
-  currentRating,
-  currentTasks,
   globalConfig: apiGlobalConfig,
   loading,
   error,
@@ -207,9 +205,7 @@ const handleCellClick = async (cell: GridCell) => {
 }
 
 // 悬停热力图格子
-let hoverTimeout: ReturnType<typeof setTimeout> | null = null
-
-const handleCellHover = (cell: GridCell) => {
+const handleCellHover = (_cell: GridCell) => {
   // TODO: 实现悬停提示浮窗
   // 可以在这里触发一个局部的 tooltip 事件
 }

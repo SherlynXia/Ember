@@ -19,7 +19,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { GlobalThemeConfig } from '../../types/rating'
 
 type TabType = 'rating' | 'growth'
