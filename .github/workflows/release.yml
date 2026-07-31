@@ -25,10 +25,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Rust
-        uses: dtolnay/rust-action@master
-
-      - name: Install dependencies (windows only)
+      - name: Install Rust target (windows only)
         if: matrix.platform == 'windows-latest'
         run: |
           rustup target add x86_64-pc-windows-msvc
