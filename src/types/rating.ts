@@ -39,6 +39,11 @@ export interface Task {
   value_score: number | null
   comment: string | null
   created_at: string
+  // === 新增字段 ===
+  parent_id: number | null       // 父任务ID（子任务用）
+  assigned_date: string | null   // 分配到的日期（拖拽用）
+  sub_task_ids: number[]         // 子任务ID列表
+  order_index: number            // 排序索引
 }
 
 /** 某天完整详情 */

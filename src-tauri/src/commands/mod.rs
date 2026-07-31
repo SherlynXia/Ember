@@ -4,7 +4,25 @@ mod rating_commands;
 mod stats_commands;
 
 // 把命令函数导出，方便在 lib.rs 中注册
-pub use task_commands::{create_task, complete_task, get_tasks_by_date};
+pub use task_commands::{
+    // 基础 CRUD
+    create_task,
+    update_task,
+    delete_task,
+    complete_task,
+    // 查询
+    get_tasks_by_date,
+    get_unassigned_tasks,
+    get_all_tasks,
+    get_task_detail,
+    // 拖拽和日期分配
+    assign_task_to_date,
+    reorder_tasks,
+    // 子任务
+    create_sub_task,
+    get_sub_tasks,
+    promote_sub_task,
+};
 pub use rating_commands::{
     save_daily_rating,           // 保存每日评分（完整版）
     get_daily_rating,            // 获取单日评分

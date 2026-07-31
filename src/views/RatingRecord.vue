@@ -93,7 +93,11 @@ import RatingFooterCard from '../components/rating/RatingFooterCard.vue'
 import RatingInputModal from '../components/rating/RatingInputModal.vue'
 import DayDetailPanel from '../components/rating/DayDetailPanel.vue'
 
-import type { GridCell, DailyRating, SaveRatingForm, Task } from '../types/rating'
+import type { GridCell, DailyRating, SaveRatingForm, Task, GlobalThemeConfig } from '../types/rating'
+
+const props = defineProps<{
+  globalConfig: GlobalThemeConfig
+}>()
 
 const activeTab = ref<'rating' | 'growth'>('rating')
 
@@ -102,7 +106,7 @@ const {
   ratingList,
   currentRating,
   currentTasks,
-  globalConfig,
+  globalConfig: apiGlobalConfig,
   loading,
   error,
   saveDailyRating,
@@ -110,6 +114,9 @@ const {
   loadInitialData,
   getToday
 } = useRatingApi()
+
+// 使用外部传入的 globalConfig，如果没有则使用 API 中的
+const globalConfig = computed(() => props.globalConfig || apiGlobalConfig.value)
 
 const {
   currentYear,
@@ -180,6 +187,13 @@ const handleCellClick = async (cell: GridCell) => {
   // 加载详情
   detailLoading.value = true
   showDetailPanel.value = true
+  selectedTasks.value = []
+
+  // 如果没有记录，直接显示空面板
+  if (!cell.record) {
+    detailLoading.value = false
+    return
+  }
 
   try {
     const detail = await getDayDetail(cell.date)

@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Ember - 个人生产力追踪",
+        "title": "Ember",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

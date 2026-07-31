@@ -8,7 +8,7 @@
       >
         <div
           class="detail-panel"
-          :style="{ backgroundColor: globalConfig.cardBgColor }"
+          :style="{ backgroundColor: '#1e293b' }"
         >
           <!-- 头部 -->
           <div class="panel-header">
@@ -331,7 +331,7 @@ const handleAdd = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.3);
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
@@ -425,6 +425,7 @@ const handleAdd = () => {
   justify-content: center;
   padding: 20px;
   border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .mood-emoji {
@@ -445,6 +446,7 @@ const handleAdd = () => {
   padding: 20px;
   border-radius: 12px;
   color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .score-value {
@@ -464,6 +466,7 @@ const handleAdd = () => {
   padding: 16px;
   border-radius: 10px;
   margin-bottom: 16px;
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .info-row {
@@ -509,6 +512,7 @@ const handleAdd = () => {
   padding: 16px;
   border-radius: 10px;
   margin-bottom: 16px;
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .comment-label {
@@ -544,7 +548,7 @@ const handleAdd = () => {
   padding: 12px;
   font-size: 13px;
   margin-bottom: 24px;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
 
