@@ -32,6 +32,7 @@
         :global-config="globalConfig"
       />
     </main>
+
   </div>
 </template>
 

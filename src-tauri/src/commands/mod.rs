@@ -2,6 +2,8 @@
 mod task_commands;
 mod rating_commands;
 mod stats_commands;
+mod pet_commands;
+mod audio_commands;
 
 // 把命令函数导出，方便在 lib.rs 中注册
 pub use task_commands::{
@@ -31,3 +33,5 @@ pub use rating_commands::{
     delete_daily_rating,         // 删除评分
 };
 pub use stats_commands::{get_heatmap_data, get_achievement_trend};
+pub use pet_commands::{get_screen_size, get_pet_window_position, move_pet_window};
+pub use audio_commands::{play_audio, play_random_startup_audio, play_random_time_audio};

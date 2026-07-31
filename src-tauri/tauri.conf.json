@@ -12,12 +12,33 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Ember",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "center": true
+        "center": true,
+        "visible": true
+      },
+      {
+        "label": "pet",
+        "title": "Pet",
+        "url": "pet.html",
+        "width": 250,
+        "height": 250,
+        "x": 100,
+        "y": 100,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "transparent": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "shadow": false,
+        "focus": false
       }
     ],
     "security": {
@@ -29,6 +50,9 @@
     "targets": "all",
     "icon": [
       "icons/icon.ico"
+    ],
+    "resources": [
+      "assets/**/*"
     ]
   },
   "plugins": {
