@@ -26,9 +26,9 @@ const { state, position, direction, currentFrame, usePlaceholder, startDrag } = 
 
 // 容器样式
 const containerStyle = computed(() => ({
-  left: `${position.x}px`,
-  top: `${position.y}px`,
-  transform: `scaleX(${direction === 'left' ? -1 : 1})`,
+  left: `${position.value.x}px`,
+  top: `${position.value.y}px`,
+  transform: `scaleX(${direction.value === 'left' ? -1 : 1})`,
 }))
 
 // 根据状态显示不同表情
