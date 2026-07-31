@@ -14,6 +14,9 @@ use commands::{
     get_heatmap_data, get_achievement_trend,
     get_screen_size, get_pet_window_position, move_pet_window,
     play_audio, play_random_startup_audio, play_random_time_audio,
+    check_update,
+    download_and_install_update,
+    open_browser,
 };
 use models::AppState;
 use std::sync::Mutex;
@@ -29,6 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .manage(Mutex::new(app_state))
         .setup(|app| {
             // 获取宠物窗口并显示
@@ -95,6 +99,9 @@ pub fn run() {
             play_audio,
             play_random_startup_audio,
             play_random_time_audio,
+            check_update,
+            download_and_install_update,
+            open_browser,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

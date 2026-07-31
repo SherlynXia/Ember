@@ -4,6 +4,7 @@ mod rating_commands;
 mod stats_commands;
 mod pet_commands;
 mod audio_commands;
+mod updater_commands;
 
 // 把命令函数导出，方便在 lib.rs 中注册
 pub use task_commands::{
@@ -35,3 +36,4 @@ pub use rating_commands::{
 pub use stats_commands::{get_heatmap_data, get_achievement_trend};
 pub use pet_commands::{get_screen_size, get_pet_window_position, move_pet_window};
 pub use audio_commands::{play_audio, play_random_startup_audio, play_random_time_audio};
+pub use updater_commands::{check_update, download_and_install_update, open_browser};

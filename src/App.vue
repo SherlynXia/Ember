@@ -5,6 +5,14 @@
       <div class="nav-brand">Ember</div>
       <div class="nav-tabs">
         <button
+          class="nav-tab update-btn"
+          :style="{ color: globalConfig.textSubColor }"
+          @click="checkForUpdates"
+          title="检查更新"
+        >
+          🔄
+        </button>
+        <button
           :class="['nav-tab', { active: currentView === 'rating' }]"
           :style="currentView === 'rating' ? { color: globalConfig.themePrimaryColor } : { color: globalConfig.textSubColor }"
           @click="currentView = 'rating'"
@@ -33,6 +41,16 @@
       />
     </main>
 
+    <!-- 更新弹窗 -->
+    <UpdateDialog
+      :visible="dialogVisible"
+      :title="dialogTitle"
+      :message="dialogMessage"
+      :show-cancel="dialogShowCancel"
+      @confirm="handleDialogConfirm"
+      @cancel="handleDialogCancel"
+    />
+
   </div>
 </template>
 
@@ -41,10 +59,20 @@ import { ref } from 'vue'
 import { onMounted } from 'vue'
 import RatingRecord from './views/RatingRecord.vue'
 import TaskBoard from './views/TaskBoard.vue'
-import { useUpdater } from './composables/useUpdater'
+import UpdateDialog from './components/UpdateDialog.vue'
+import { useUpdater, dialogVisible, dialogTitle, dialogMessage, dialogShowCancel, confirmDialog, cancelDialog } from './composables/useUpdater'
 import type { GlobalThemeConfig } from './types/rating'
 
-const { checkForUpdatesSilent } = useUpdater()
+const { checkForUpdatesSilent, checkForUpdates } = useUpdater()
+
+// 弹窗事件处理
+const handleDialogConfirm = () => {
+  confirmDialog()
+}
+
+const handleDialogCancel = () => {
+  cancelDialog()
+}
 
 const currentView = ref<'rating' | 'tasks'>('rating')
 
@@ -128,6 +156,11 @@ body {
 .nav-tab.active {
   background: rgba(59, 130, 246, 0.15);
   font-weight: 500;
+}
+
+.update-btn {
+  padding: 8px;
+  font-size: 16px;
 }
 
 .app-main {

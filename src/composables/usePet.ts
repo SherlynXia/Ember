@@ -1,5 +1,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { playStartupAudio, playTimeAudio } from './usePetAudio'
 
 export type PetState = 'stand' | 'walk-left' | 'walk-right'
@@ -58,11 +59,10 @@ export function usePet() {
     for (const config of configs) {
       const loadedFrames: string[] = []
       for (let i = 1; i <= config.count; i++) {
-        // 尝试多个路径
+        // 尝试多个路径（开发模式和打包模式）
         const paths = [
-          `/src-tauri/assets/pet/${config.folder}/${i}.png`,
-          `../src-tauri/assets/pet/${config.folder}/${i}.png`,
-          `../../src-tauri/assets/pet/${config.folder}/${i}.png`,
+          `/src-tauri/assets/pet/${config.folder}/${i}.png`,  // 开发模式
+          `assets/pet/${config.folder}/${i}.png`,               // 打包模式
         ]
         
         for (const path of paths) {
@@ -70,7 +70,6 @@ export function usePet() {
             const response = await fetch(path, { method: 'HEAD' })
             if (response.ok) {
               loadedFrames.push(path)
-              console.log(`[Pet] Loaded frame: ${path}`)
               break
             }
           } catch {
