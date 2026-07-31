@@ -47,7 +47,7 @@ export function usePet() {
     return frames.value[state.value].length === 0
   })
 
-  // 加载帧图片（从 src-tauri/assets/pet/ 加载）
+  // 加载帧图片（从 public/pet/ 加载）
   const loadFrames = async () => {
     const configs = [
       { state: 'stand' as PetState, folder: 'stand', count: 6 },
@@ -58,22 +58,16 @@ export function usePet() {
     for (const config of configs) {
       const loadedFrames: string[] = []
       for (let i = 1; i <= config.count; i++) {
-        // 尝试多个路径（开发模式和打包模式）
-        const paths = [
-          `/src-tauri/assets/pet/${config.folder}/${i}.png`,  // 开发模式
-          `assets/pet/${config.folder}/${i}.png`,               // 打包模式
-        ]
+        // 使用 public 目录下的路径（开发和打包模式通用）
+        const path = `/pet/${config.folder}/${i}.png`
         
-        for (const path of paths) {
-          try {
-            const response = await fetch(path, { method: 'HEAD' })
-            if (response.ok) {
-              loadedFrames.push(path)
-              break
-            }
-          } catch {
-            // 尝试下一个路径
+        try {
+          const response = await fetch(path, { method: 'HEAD' })
+          if (response.ok) {
+            loadedFrames.push(path)
           }
+        } catch {
+          // 图片不存在，跳过
         }
       }
       if (loadedFrames.length > 0) {
