@@ -159,7 +159,7 @@ const inputStyle = {
   borderRadius: '6px',
   width: '100%',
   fontSize: '14px',
-  resize: 'vertical'
+  resize: 'vertical' as const
 }
 
 const satisfactionStyle = (n: number) => ({

@@ -54,7 +54,7 @@ const globalConfig: GlobalThemeConfig = {
   tabActiveBg: 'rgba(59, 130, 246, 0.15)',
   textMainColor: '#e5e7eb',
   textSubColor: '#9ca3af',
-  cardBgColor: 'rgba(255, 255, 255, 0.08)',
+  cardBgColor: '#1e293b',
   pageBgColor: '#0f172a',
   themeBorderColor: 'rgba(255, 255, 255, 0.1)',
   tooltipBgColor: 'rgba(30, 41, 59, 0.95)',
@@ -101,6 +101,7 @@ body {
   font-weight: 700;
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

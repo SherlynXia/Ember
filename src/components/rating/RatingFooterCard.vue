@@ -1,13 +1,10 @@
 <template>
   <div class="bottom-desc-card">
-    <h3 class="card-title">✨ 今日金句</h3>
+    <h1 class="card-title">✨ 今日金句</h1>
     <p class="quote-text">{{ randomQuote }}</p>
     <div class="decor-dot-group" :style="dotGridStyle">
       <div
-        v-for="dotIndex in dotTotalList"
-        :key="dotIndex"
-        class="decor-dot"
-        :style="{ backgroundColor: globalConfig.themePrimaryColor }"
+         
       ></div>
     </div>
   </div>
@@ -136,21 +133,21 @@ defineProps<{
   opacity: 0.75;
 }
 .quote-text {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.7;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 1px;
   font-style: italic;
   margin: 0;
   min-height: 3.4em;
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg,
-    v-bind('globalConfig.themePrimaryColor'),
-    color-mix(in srgb, v-bind('globalConfig.themePrimaryColor') 60%, #fff 40%));
+  /* 鲜艳明亮的 Ember 蓝紫渐变 */
+  background: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(168, 85, 247, 0.45));
 }
 .decor-dot-group {
   position: absolute;

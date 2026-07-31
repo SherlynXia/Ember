@@ -25,15 +25,18 @@
             </h3>
           </div>
           <div
+            ref="unassignedPanel"
             class="panel-body"
-            @dragover.prevent
-            @drop="handleDropToUnassigned"
           >
             <TaskCard
               v-for="task in unassignedTasks"
               :key="task.id"
               :task="task"
               :global-config="globalConfig"
+              :is-dragging="draggingTaskId === task.id"
+              :selected="activeTaskId === task.id"
+              @drag-start="handleTaskDragStart"
+              @select="handleTaskSelect"
               @edit="handleEdit"
               @delete="handleDelete"
               @assign="handleAssign"
@@ -60,6 +63,10 @@
               :key="task.id"
               :task="task"
               :global-config="globalConfig"
+              :is-dragging="draggingTaskId === task.id"
+              :selected="activeTaskId === task.id"
+              @drag-start="handleTaskDragStart"
+              @select="handleTaskSelect"
               @edit="handleEdit"
               @delete="handleDelete"
               @assign="handleAssign"
@@ -107,14 +114,12 @@
             :key="dateInfo.date"
             class="date-cell"
             :class="{ 
-              'is-today': dateInfo.isToday,
+              'active-date': activeDate === dateInfo.date,
               'drag-over': dragOverDate === dateInfo.date 
             }"
-            :style="dateCellStyle(dateInfo)"
-            @dragover.prevent="dragOverDate = dateInfo.date"
-            @dragleave="dragOverDate = null"
-            @drop="handleDropToDate($event, dateInfo.date)"
-            @click="showDateTasks(dateInfo.date)"
+            :data-date="dateInfo.date"
+            :style="dateCellStyle()"
+            @click="handleDateClick(dateInfo.date)"
           >
             <div class="date-label">{{ dateInfo.label }}</div>
             <div class="date-weekday">{{ dateInfo.weekday }}</div>
@@ -142,6 +147,10 @@
             :key="task.id"
             :task="task"
             :global-config="globalConfig"
+            :is-dragging="draggingTaskId === task.id"
+            :selected="activeTaskId === task.id"
+            @drag-start="handleTaskDragStart"
+            @select="handleTaskSelect"
             @edit="handleEdit"
             @delete="handleDelete"
             @assign="handleAssign"
@@ -181,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Task, GlobalThemeConfig } from '../types/rating'
 import {
   getAllTasks,
@@ -206,6 +215,10 @@ const editingTask = ref<Task | null>(null)
 const completingTaskId = ref<number | null>(null)
 const selectedDate = ref<string | null>(null)
 const dragOverDate = ref<string | null>(null)
+// 鼠标事件拖拽状态（WebView2 对 HTML5 拖拽支持不完善，改用鼠标事件实现）
+const draggingTaskId = ref<number | null>(null)
+const unassignedPanel = ref<HTMLElement | null>(null)
+let dragActive = false
 
 // 分类任务
 const unassignedTasks = computed(() =>
@@ -229,10 +242,9 @@ const upcomingDates = computed(() => {
   for (let i = 0; i < 14; i++) {
     const date = new Date(today)
     date.setDate(today.getDate() + i)
-    const dateStr = date.toISOString().split('T')[0]
 
     dates.push({
-      date: dateStr,
+      date: formatDateLocal(date),
       label: i === 0 ? '今天' : i === 1 ? '明天' : `${date.getMonth() + 1}/${date.getDate()}`,
       weekday: weekdays[date.getDay()],
       isToday: i === 0
@@ -242,19 +254,41 @@ const upcomingDates = computed(() => {
   return dates
 })
 
+// 使用本地日期格式化，避免 toISOString() 的 UTC 时区偏移问题
+const formatDateLocal = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+// 当前高亮的日期（默认今天）
+const activeDate = ref<string>(formatDateLocal(new Date()))
+// 当前选中的任务ID（卡片高亮用）
+const activeTaskId = ref<number | null>(null)
+
+// 点击任务卡片：高亮其分配日期，并保持直到点击下一个日期
+const handleTaskSelect = (task: Task) => {
+  activeTaskId.value = task.id
+  if (task.assigned_date) {
+    activeDate.value = task.assigned_date
+  }
+}
+
+// 点击日期格子：切换高亮到该日期并显示其任务
+const handleDateClick = (dateStr: string) => {
+  activeDate.value = dateStr
+  selectedDate.value = dateStr
+  activeTaskId.value = null
+}
+
 // 获取某天的任务
 const getTasksForDate = (dateStr: string) => {
   return tasks.value.filter(t => t.assigned_date === dateStr && !t.is_completed)
 }
 
-// 日期格子样式
-const dateCellStyle = (dateInfo: { isToday: boolean }) => {
-  if (dateInfo.isToday) {
-    return {
-      borderColor: props.globalConfig.themePrimaryColor,
-      backgroundColor: 'rgba(59, 130, 246, 0.1)'
-    }
-  }
+// 日期格子样式（基础样式；高亮由 active-date / drag-over 类控制）
+const dateCellStyle = () => {
   return {
     borderColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: props.globalConfig.cardBgColor
@@ -296,7 +330,7 @@ const handleUpdate = async (taskData: Partial<Task>) => {
       estimatedTime: taskData.estimated_time,
       estimatedDifficulty: taskData.estimated_difficulty,
       isImportant: taskData.is_important,
-      comment: taskData.comment
+      comment: taskData.comment ?? undefined
     })
     editingTask.value = null
     await loadTasks()
@@ -329,21 +363,45 @@ const handleAssign = async (payload: { taskId: number; dateStr: string | null })
   }
 }
 
-// 拖拽到未分配区域
-const handleDropToUnassigned = (e: DragEvent) => {
-  dragOverDate.value = null
-  const taskId = e.dataTransfer?.getData('taskId')
-  if (taskId) {
-    handleAssign({ taskId: parseInt(taskId), dateStr: null })
-  }
+// ==================== 鼠标事件拖拽 ====================
+// WebView2 对 HTML5 拖拽（dragover/drop）支持不完善，这里用
+// mousedown -> mousemove（高亮）-> mouseup（落点分配）实现等效交互
+
+// 任务卡片 mousedown 触发，开始拖拽会话
+const handleTaskDragStart = (taskId: number) => {
+  draggingTaskId.value = taskId
+  dragActive = true
+  window.addEventListener('mousemove', handleDragMove)
+  window.addEventListener('mouseup', handleDragUp)
 }
 
-// 拖拽到日期
-const handleDropToDate = (e: DragEvent, dateStr: string) => {
+// 拖拽移动：通过元素命中检测高亮日期格子
+const handleDragMove = (e: MouseEvent) => {
+  if (!dragActive) return
+  const el = document.elementFromPoint(e.clientX, e.clientY)
+  const cell = el?.closest('.date-cell') as HTMLElement | null
+  dragOverDate.value = cell?.dataset.date ?? null
+}
+
+// 松手：根据落点执行分配
+const handleDragUp = (e: MouseEvent) => {
+  if (!dragActive) return
+  dragActive = false
+  window.removeEventListener('mousemove', handleDragMove)
+  window.removeEventListener('mouseup', handleDragUp)
+
+  const taskId = draggingTaskId.value
+  draggingTaskId.value = null
   dragOverDate.value = null
-  const taskId = e.dataTransfer?.getData('taskId')
-  if (taskId) {
-    handleAssign({ taskId: parseInt(taskId), dateStr })
+  if (taskId === null) return
+
+  const el = document.elementFromPoint(e.clientX, e.clientY) as Element | null
+  const cell = el?.closest('.date-cell') as HTMLElement | null
+  if (cell?.dataset.date) {
+    handleAssign({ taskId, dateStr: cell.dataset.date })
+  } else if (el && unassignedPanel.value?.contains(el)) {
+    // 拖回"待安排"区域 = 取消分配
+    handleAssign({ taskId, dateStr: null })
   }
 }
 
@@ -391,11 +449,6 @@ const handleCompleteSubmit = async (data: {
   }
 }
 
-// 显示日期任务
-const showDateTasks = (dateStr: string) => {
-  selectedDate.value = dateStr
-}
-
 // 编辑任务
 const handleEdit = (task: Task) => {
   editingTask.value = task
@@ -403,6 +456,15 @@ const handleEdit = (task: Task) => {
 
 onMounted(() => {
   loadTasks()
+})
+
+// 组件卸载时清理拖拽监听
+onUnmounted(() => {
+  if (dragActive) {
+    window.removeEventListener('mousemove', handleDragMove)
+    window.removeEventListener('mouseup', handleDragUp)
+    dragActive = false
+  }
 })
 </script>
 
@@ -523,6 +585,14 @@ onMounted(() => {
   transform: scale(1.05);
   border-color: #3b82f6 !important;
   background: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* 选中任务对应的日期高亮 */
+.date-cell.active-date {
+  transform: scale(1.05);
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 .date-label {

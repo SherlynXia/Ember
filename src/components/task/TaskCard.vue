@@ -5,12 +5,12 @@
       'is-completed': task.is_completed,
       'is-important': task.is_important,
       'is-sub-task': task.parent_id,
-      'is-dragging': isDragging
+      'is-dragging': isDragging,
+      'is-selected': selected
     }"
     :style="cardStyle"
-    draggable="true"
-    @dragstart="handleDragStart"
-    @dragend="handleDragEnd"
+    @mousedown="handleMouseDown"
+    @click="handleCardClick"
   >
     <!-- 拖拽时的半透明覆盖层 -->
     <div v-if="isDragging" class="drag-overlay">
@@ -125,6 +125,8 @@ const props = defineProps<{
   globalConfig: GlobalThemeConfig
   subTasks?: Task[]
   isExpanded?: boolean
+  isDragging?: boolean
+  selected?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -134,9 +136,10 @@ const emit = defineEmits<{
   split: [payload: { parentId: number; title: string }]
   complete: [taskId: number]
   toggleSubtasks: [taskId: number]
+  'drag-start': [taskId: number]
+  select: [task: Task]
 }>()
 
-const isDragging = ref(false)
 const showSubTasks = ref(false)
 
 const isExpanded = computed(() => showSubTasks.value)
@@ -151,18 +154,22 @@ const cardStyle = computed(() => ({
   opacity: props.task.is_completed ? 0.6 : 1
 }))
 
-const handleDragStart = (e: DragEvent) => {
-  if (props.task.is_completed) {
-    e.preventDefault()
-    return
-  }
-  isDragging.value = true
-  e.dataTransfer?.setData('taskId', props.task.id.toString())
-  e.dataTransfer!.effectAllowed = 'move'
+// 鼠标事件拖拽：WebView2 对 HTML5 拖拽支持不完善，改用 mousedown 触发
+const handleMouseDown = (e: MouseEvent) => {
+  if (props.task.is_completed) return
+  // 只响应左键，且点击内部按钮/输入框时不触发
+  if (e.button !== 0) return
+  const target = e.target as HTMLElement
+  if (target.closest('button, input, label, textarea, a')) return
+  e.preventDefault()
+  emit('drag-start', props.task.id)
 }
 
-const handleDragEnd = () => {
-  isDragging.value = false
+// 点击任务卡片，通知父组件高亮其对应日期
+const handleCardClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (target.closest('button, input, label, textarea, a')) return
+  emit('select', props.task)
 }
 
 const handleSplit = () => {
@@ -182,8 +189,13 @@ const formatDate = (dateStr: string) => {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
+// 使用本地日期，避免 toISOString() 的 UTC 时区偏移问题
 const getToday = () => {
-  return new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 </script>
 
@@ -208,6 +220,12 @@ const getToday = () => {
 .task-card.is-dragging {
   opacity: 0.5;
   cursor: grabbing;
+}
+
+/* 选中任务：高亮边框，提示其分配日期 */
+.task-card.is-selected {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .task-card.is-sub-task {
@@ -303,6 +321,7 @@ const getToday = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
