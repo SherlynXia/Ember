@@ -1,6 +1,5 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { convertFileSrc } from '@tauri-apps/api/core'
 import { playStartupAudio, playTimeAudio } from './usePetAudio'
 
 export type PetState = 'stand' | 'walk-left' | 'walk-right'

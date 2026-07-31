@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, defineEmits } from 'vue'
+// defineProps 和 defineEmits 在 <script setup> 中自动可用，无需导入
 
 const props = defineProps<{
   visible: boolean
